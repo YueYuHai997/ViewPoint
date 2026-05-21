@@ -97,7 +97,7 @@ function handleUDPData(buffer) {
       return;
     }
 
-    log.debug('解码消息:', decoded.type);
+    log.info('收到消息:', decoded.type);
 
     switch (decoded.type) {
       case 'MsgCombineSend': {
@@ -105,7 +105,10 @@ function handleUDPData(buffer) {
         log.debug('批量消息, 数量:', msgs.length);
         for (const anyMsg of msgs) {
           const inner = protoParser.decodeAny(anyMsg.type_url, anyMsg.value);
-          if (inner) processMessage(inner);
+          if (inner) {
+            log.info('  子消息:', inner.type);
+            processMessage(inner);
+          }
         }
         break;
       }
