@@ -201,12 +201,32 @@ function processMessage(decoded, objectId) {
       }
       break;
     }
-    case 'EchoCreate':
-      log.info('车辆创建事件:', JSON.stringify(decoded.data));
+    case 'EchoCreate': {
+      const d = decoded.data;
+      const carId = d.ID || objectId;
+      if (carId) {
+        const pos = d.Cteatetrans && d.Cteatetrans.Pos;
+        const rot = d.Cteatetrans && d.Cteatetrans.Rot;
+        dataManager.processUploadCarInfo({
+          CarID: carId,
+          Camp: d.Camp,
+          Number: d.Number,
+          Name: d.Name,
+          Coordinate: pos ? { x: pos.x, y: pos.y, z: pos.z } : null,
+          MoveDirection: rot ? { x: rot.x, y: rot.y, z: rot.z } : null,
+        });
+        log.info('车辆创建:', d.Name || '', 'ID:', carId, '阵营:', d.Camp, '编号:', d.Number);
+      }
       break;
-    case 'EchoDestroy':
-      log.info('车辆销毁事件:', JSON.stringify(decoded.data));
+    }
+    case 'EchoDestroy': {
+      const destroyId = (decoded.data && decoded.data.Value1) || objectId;
+      if (destroyId) {
+        dataManager.removeVehicle(Number(destroyId));
+        log.info('车辆销毁, ID:', destroyId);
+      }
       break;
+    }
     default:
       log.info('未处理的消息类型:', decoded.type);
       break;

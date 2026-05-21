@@ -21,6 +21,7 @@ class App {
     this.fpsTime = Date.now();
     this.updateCount = 0;
     this.lastUpdateRateTime = Date.now();
+    this.hasFocused = false;
   }
 
   async init() {
@@ -95,6 +96,13 @@ class App {
     const vehicle = this.vehicleManager.updateVehicle(data);
     this.trajectoryRenderer.update(vehicle);
     this.leftPanel.updateList(Array.from(this.vehicles.values()));
+
+    // 首次收到车辆时自动聚焦
+    if (!this.hasFocused && data.position) {
+      this.hasFocused = true;
+      this.cameraController.focusOn(data.position);
+      log.info('自动聚焦到车辆:', carId);
+    }
 
     if (this.leftPanel.selectedCarId === carId) {
       this.rightPanel.showVehicle(data);

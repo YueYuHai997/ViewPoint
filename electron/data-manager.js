@@ -29,8 +29,8 @@ class DataManager {
       ...existing,
       carId: carId,
       type: this.getVehicleType(carId),
-      camp: this.getCamp(carId),
-      number: this.getNumber(carId),
+      camp: carInfo.Camp ? (carInfo.Camp === 1 ? 'blue' : carInfo.Camp === 2 ? 'red' : this.getCamp(carId)) : this.getCamp(carId),
+      number: carInfo.Number || this.getNumber(carId),
       position: carInfo.Coordinate ? {
         x: (carInfo.Coordinate.x || 0) / 100,
         y: (carInfo.Coordinate.z || 0) / 100,
