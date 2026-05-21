@@ -1,0 +1,87 @@
+syntax = "proto3";
+package NetProt.V3;
+
+import "google/protobuf/any.proto";
+
+// ===================== 业务消息定义可随意修改 =====================
+
+// 登录详细信息
+message Login_Info {
+	string group_lead_client_id = 1;  //组长信息（原groupLeadhost，蛇形命名）
+}
+
+// 加入房间的详细信息（位置、地图、操控方式等）
+message Init_Info {
+	string map_name = 1;                // 地图名称
+	Weather weathercontrol =2;          // 天气控制
+	float Time = 3;      		        // 24 小时制
+    int32 Wind = 4;      		        // 0 - 360 度
+    int32 WindLeve = 5;  		        // 0 - 10 级
+	repeated EntityInfo entityinfo = 6; // 加载物体的信息 如果客户端不支持多加载，只会读取第0个
+}
+
+message EntityInfo
+{
+	// 三维位置坐标
+	float location_x = 1;  // 位置X轴坐标
+	float location_y = 2;  // 位置Y轴坐标
+	float location_z = 3;  // 位置Z轴坐标
+	
+	// 三维旋转角度
+	float rotation_x = 4;  // 旋转X轴角度（俯仰角）
+	float rotation_y = 5;  // 旋转Y轴角度（偏航角）
+	float rotation_z = 6;  // 旋转Z轴角度（翻滚角）
+	
+	// 房间基础配置
+	int32 control_mode = 7;    // 操控方式：1-键鼠 2-实装 3-智能体 4-AI
+	string load_name = 8;      // 加载物体名称  ;F1Create、A99Create、UAV_1、UAV_2、UAV_3、UAV_4
+	string control_type = 9;   // 控制方式      预留参数 方便后续有控制权物体加载
+							   // Hard_client  带有硬件的客户端，不接受 load_name以及control_type ，限制只能加载99A和F1，
+							   // 20_client    20个节点的客户端 
+							   // UAV_client   无人机客户端
+							   // 3D_client    三维台式客户端  ，不接受 load_name以及control_type，
+							   // AI_client    AI节点        ，不接受 load_name以及control_type，   --准备废弃
+}
+
+// 客户端状态详细信息
+message Client_Info {
+	string ip = 1;                         // 客户端IP地址
+	string port = 2;                       // 客户端端口
+	string group_lead_client_id = 3;       // 组长信息
+	
+	string client_type = 4;                // 席位信息： Hard_client:带有硬件的客户端 || 20_client：20个节点的客户端 ||UAV_client:无人机客户端 ||3D_client:三维台式客户端 || AI_client:AI节点
+	repeated Client_Entity entitys = 5 ;   // 客户端加载的装备的 非实时数据
+}
+
+
+//客户端加载的实体信息
+message Client_Entity{
+	int32 CarID = 1;        // 阵营 + 序号 从配置文件读取     ||   1 -蓝色集团军  2 -红色集团军  &&  1|2|3|4|5 5号为99A 
+	string load_name = 2;   // 加载物体名称  Hard_client、3D_client等不接受控制参数的,直接从配置文件读取  ||  20_client、UAV_client 等待初始化后赋值
+	int32 control_mode = 3; // 操控方式：1-键鼠 2-实装 3-智能体 4-AI   || 等待初始化后赋值
+	google.protobuf.Any ZhiKongInfo = 4;  // 装备信息： 将AI消息转发给 root UploadUAVInfo、UploadCarInfo
+}
+
+// 房间控制指令
+message Room_Control {
+	Weather weathercontrol =1;  // 天气控制
+	float Time = 2;      		// 24 小时制
+    int32 Wind = 3;      		// 0 - 360 度
+    int32 WindLeve = 4;  		// 0 - 10 级
+	float Speed = 5;     		// 运行速度
+}
+
+//天气对应表
+enum Weather
+{
+    Weather_None = 0; 		   // 无
+    Weather_Sun = 1;  		   // 晴天
+    Weather_Cloud = 2;		   // 多云
+    Weather_Rain = 3; 		   // 阴雨天
+    Weather_Snow = 4;          // 雪天
+    Weather_Fog = 5;   		   // 大雾
+    Weather_ThunderShower = 6; // 雷雨
+    Weather_MoreCloud = 7;     // 暴风雪
+    Weather_SandStorm = 8;     // 沙尘暴
+    Weather_Sleet = 9;         // 雨夹雪
+}

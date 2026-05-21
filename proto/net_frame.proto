@@ -1,0 +1,149 @@
+syntax = "proto3";
+package netFrame;
+
+
+// 导入任意类型依赖（用于扩展信息字段）
+import "google/protobuf/any.proto";
+
+
+// ===================== 通用框架定义 =====================
+// ===================== 请勿修改    ======================
+
+// 通用消息包裹（原MsgHead）
+// 服务端如果解析msg为未知类型，直接转发至房间即可
+message NetMessage {
+	string client_id = 1;    // 发送客户端ID（原clientID，蛇形命名）
+	int32 object_id = 2;     // 物体ID（原ID，重命名更语义化）
+	google.protobuf.Any msg = 3;      // 具体业务消息体（扩展字段） 
+}
+
+// 客户端登陆消息 原来的MsgLogin
+message req_Login {
+	string account = 1;          // 教员台设置为root   ，该消息作为响应时返回”ok”/"failed"  
+	string password = 2;         // 教员台设置监听房间号  该消息作为响应时返回失败原因
+	google.protobuf.Any Login_Info = 3;   // Login_Info 具体消息
+}
+
+// 客户端初始化请求（替换原MsgJoinRoom逻辑）逻辑是否经过服务器
+message req_ClientInit {
+	string client_id = 1;              // 目标客户端身份信息（原clientID，蛇形命名）
+	int32 room_id = 2;                 // 目标房间ID（范围：1-10）
+	google.protobuf.Any Init_Info = 3; // Init_Info 
+}
+
+
+// 客户端状态上报请求
+message UploadClientDataReq {
+	ClientState client_state = 1;  // 客户端状态类型
+	float cpu_usage = 2;           // CPU使用率
+	float gpu_usage = 3;           // GPU使用率
+	float memory_usage = 4;        // 内存使用率
+	int32 fps = 5;                 // 帧率
+	google.protobuf.Any Client_Info = 6;    // client_Info
+}
+
+// 房间状态控制  原有的 Room_StatesReq  以及  InsRoomWeather InsSpeedControl 
+message req_Room_State{
+	int32 room_id = 1;             		  // 房间ID
+	RoomControl room_State = 2;  		  // 房间状态类型
+	google.protobuf.Any Room_Control = 3; // 房间控制指令
+}
+
+// 房间对局列表请求
+message req_Room_Matches{
+	int32 room_id = 1;   //房间ID
+	int32 limit = 2;     //限制数量
+	int32 offset = 3;    //偏移量
+}
+
+// 房间对局列表响应
+message rsp_Room_Matches{
+	repeated RoomMatch room_matches = 1; //房间对局列表
+}
+
+// 房间对局信息
+message RoomMatch{
+	int64 match_id = 1;         //对局ID
+	int32 room_id = 2;          //房间ID
+	repeated string player_ids = 3;      //玩家ID列表
+	int64  start_at_ms = 4;     //开始时间戳
+	int64  end_at_ms = 5;       //结束时间戳
+}
+
+// 房间回放请求： 请求回放某场对局
+message Room_ReplayReq {
+	int32 room_id = 1;    // 房间ID
+	int64 match_id = 2;   // 对局ID
+}
+
+// 心跳消息  
+message req_Heart
+{
+	string count =1;   //时间戳
+}
+
+// 断开联系
+message req_Disconnect
+{
+    string info = 1;        // 断开连接原因
+    string client_id = 2;   // 断开连接主机
+}
+
+//服务器发送一次Tick的所有消息   原RoomTickDatas
+message MsgCombineSend
+{
+	repeated google.protobuf.Any msgs =1;  // 消息列表，存储序列化的NetMessage
+}
+
+//获取客户端详细信息
+message req_GetClientInfo{
+	repeated ClientInfo clientinfos=1;  // 作为请求空参数，
+}
+
+message ClientInfo
+{
+	string client_id = 1;                  // 客户端
+	string ip = 2;                         // 客户端IP地址
+	string port = 3;                       // 客户端端口
+	google.protobuf.Any login_info = 4;    // 登录消息     赋值客户端的登录的Login_Info字段
+	google.protobuf.Any client_info = 5;   // 初始化消息   赋值UploadClientDataReq的Client_Info字段
+}
+
+// 教员台控制指令
+message req_IosCommand{
+	string tag_id = 1;   		           // 目标客户端ID  或  房间ID
+	CommandType control_type = 2 ;         // 控制指令类型模式
+	google.protobuf.Any commandInfo = 3;   // 控制指令信息
+}
+
+// ===================== 状态定义  =========================
+// ===================== 请勿修改  ======================
+// 客户端状态
+enum ClientState
+{
+    ClientState_None = 0;      //空    
+    ClientState_Watting = 1;   //等待中
+    ClientState_Loading = 2;   //加载中 
+    ClientState_Loaded = 3;    //加载完毕
+    ClientState_Gameing = 4;   //游戏中
+}
+
+// 房间状态
+enum RoomControl
+{
+    RoomControl_None = 0;    //空     
+    RoomControl_Begin = 1;   //开始对战
+    RoomControl_Stop = 2;    //暂停对战
+    RoomControl_Resume = 3;  //继续对战
+    RoomControl_End = 4;     //结束对战
+    RoomControl_Load = 5;    //开始加载   
+}
+
+// 控制指令类型模式
+enum CommandType
+{
+    CommandType_None = 0;     //空    
+    CommandType_Client = 1;   //客户端控制模式
+    CommandType_Room = 2;     //房间控制模式
+    CommandType_ALL = 3;      //全局控制模式
+}

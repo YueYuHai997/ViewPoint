@@ -1,0 +1,604 @@
+syntax = "proto2";
+package NetProt;
+
+
+//---------------------------------- 客户端消息---------------------------------- 
+
+
+
+message EchoUAV  //UAV 同步事件
+{
+    optional SyncBase translate  = 1; 
+	optional int32 Rpm = 2;
+}
+
+message EchoCarDie  //车辆被击毁事件
+{
+    optional int32 value = 1;
+}
+
+message EchoBulletHit  //子弹撞击事件
+{
+    optional NetClient client = 1;
+    optional int32 Id = 2;
+    optional Base vec = 3;
+}
+
+message MsgGetPort   //发送给负载均衡服务 获取 GateWay 端口号
+{
+    optional int32 GateWayPort = 1;   // GateWay 端口号
+    optional bool discard = 2;   // GateWay 端口号
+}
+
+message MsgToCar   //发送给同组车
+{
+    optional int32 CarCamp = 1;   
+    optional int32 SendNumber = 2;   
+    optional int32 ReceiveNumber = 3;   // ReceiveNumber == -1 向同组车发送
+    
+    optional float SendValue1 = 4;  //发送 预备参数1
+    optional float SendValue2 = 5;  //发送 预备参数2
+    optional Base SendLocal = 6;    //发送坐标
+}
+
+message MsgLogin
+{
+    optional string account = 1;
+    optional string password = 2;
+    optional string groupLeadhost = 3;
+    optional int32 CarType = 4;   //  0 - null  ||  1 - F1 ||  2 - 99A   ||  3 - 态势
+    
+    optional int32 Camp = 5;
+    optional int32 Number = 6;
+}
+
+message MsgDisconnect
+{
+    optional string info = 1;
+    optional string host = 2;
+}
+
+//删除isred字段
+message EchoCreate
+{
+    optional NetClient OwnerClient = 1;
+    optional int32 ID = 2 ;
+    optional SyncBase Cteatetrans = 3;
+    optional string Name = 5;
+    optional int32 Camp = 6;
+    optional int32 Number = 7;
+}
+
+message MsgDemoSync
+{
+    optional int32 iD = 1;
+    optional NetClient sendClient = 2;
+    optional SyncBase translate = 3;
+}
+
+
+message EchoFire  //开火消息
+{
+    optional SyncBase FcarPos = 1;    //车体位置
+    optional float FturretRot = 2;    //炮塔旋转  --相对
+    optional float FturretPitch = 3;  //炮塔仰俯角 --相对
+    optional int32 Ftype = 4;         //开火种类
+}
+
+message EchoCreateMissle //创建导弹
+{
+    optional int32 iD = 1;
+    optional NetClient OwnerClient = 2;
+    optional SyncBase Cteatetrans = 3;
+    optional int32 MissleType = 4;
+}
+
+message EchoMissle  //导弹同步
+{
+    optional SyncBase translate = 1;
+}
+
+message EchoDestroy  //同步物体销毁
+{
+    optional string Value1 = 1; 
+}
+
+message EchoHit //击中消息 被动
+{
+    optional NetClient SendClient = 1;  // 被击中物体客户端
+    optional int32 ID = 2;       // 被击中物体客户端物体编号
+    optional float Damage = 3;   // 伤害值
+    optional int32 Type = 4;     // 类型
+    optional int32 Are = 5;      // 区域
+}
+
+
+message Echo99ADriver // 99A驾驶消息
+{
+    optional SyncBase translate = 1;    //车体位置
+    optional DriveData_99A DriveData = 2;  //车体油门等信息
+}
+
+
+message Echo99AGunner // 99A炮长
+{
+   optional float TurretRot = 1;   //炮塔旋转  --相对
+   optional float CannonRotx = 2;  //炮塔仰俯角 --相对
+   optional GunnerData Data = 3;
+   //optional int32 Sender = 4;  //发送者
+}
+
+
+message Echo99AControl // 99A控制信号
+{
+    optional int32 Light = 1;       // 开灯情况
+    optional int32 Smoke = 2;       // 烟雾  弹
+    optional int32 BullerType = 3;  // 切换弹种
+    optional int32 Other = 4;       // 剩下其他
+    optional Base Target = 5;       // 打击目标
+}
+
+message GunnerData // 99A 、F1炮塔辅助
+{
+    optional float PanoramicSightH = 1;   //周视镜参数
+    optional float PanoramicSightv = 2; 
+}
+
+message DriveData_99A // 99A驾驶辅助
+{
+    optional float h = 1;  
+    optional float v = 2; 
+    optional float Speed = 3; 
+}
+
+
+message EchoF1Driver // F1驾驶消息
+{
+    optional SyncBase translate = 1;      //车体位置
+    optional DriveData_F1 DriveData = 2;  //车体油门等信息
+}
+
+
+message EchoF1Gunner // F1炮长
+{
+   
+   optional float TurretRot = 1;     //炮塔旋转   --相对
+   optional float CannonRotx = 2;    //炮塔仰俯角 --相对
+   optional int32 CurrentCannon = 3; //当前控制炮管 
+   optional GunnerData Data = 4;
+   
+}
+
+
+message DriveData_F1 // F1驾驶辅助
+{
+    optional float h = 1;  
+    optional float v = 2; 
+    optional bool PTGear = 3; 
+    optional bool IsEngine = 4; 
+    optional float Speed = 5;  
+}
+
+
+message EchoF1Control  //  F1指令消息
+{
+   optional bool Light1 = 1;   //灯1
+   optional bool Light2 = 2;   //灯2
+   optional bool Light3 = 3;   //灯3
+   optional bool Horn = 4;     //喇叭
+   optional bool isGunner = 5;
+   optional int32 Reload = 6;
+}
+
+message EchoF1AI
+{
+   optional SyncBase translate = 1;    //车体位置
+   optional float h = 2;  
+   optional float v = 3; 
+   optional bool PTGear = 4; 
+   optional bool IsEngine = 5; 
+   optional float Speed = 6; 
+   optional float TurretRot = 7;       //炮塔旋转  --相对
+   optional float CannonRotx = 8;      //炮塔仰俯角 --相对
+   optional int32 CurrentCannon = 9;   //当前控制炮管    
+}
+
+message EchoSuperShoot // 超越射击
+{
+    optional bool SuperShoot = 1;  
+}
+
+
+//----------------------------------------基础类消息---------------------------------------
+message NetClient
+{
+    optional string SenderIP = 1;
+    optional int32 SenderPort = 2;
+    //optional int32 Token = 3;
+}
+
+message MsgHead
+{
+    optional string msgName = 1;
+    optional bytes  msgBody = 2;
+    optional int32 ID = 3;
+    optional NetClient SendClient = 4;
+}
+
+message MsgCombineSend
+{
+    repeated bytes msgs = 1;
+}
+
+message MsgHeart
+{
+    optional string count =1;
+}
+
+
+message SyncBase
+{
+    optional Base Pos = 1;
+    optional Base Rot = 2;
+}
+
+message Base
+{
+    optional float x = 1;
+    optional float y = 2;
+    optional float z = 3;
+}
+
+enum RoomControl
+{
+    RoomControl_None = 0;    //空
+    RoomControl_Begin = 1;   //开始对战
+    RoomControl_Stop = 2;    //暂停对战
+    RoomControl_Resume = 3;  //继续对战
+    RoomControl_End = 4;     //结束对战
+    RoomControl_Load = 5;    //开始加载
+}
+
+enum ClientState
+{
+    ClientState_None = 0;      //空    
+    ClientState_Watting = 1;   //等待中
+    ClientState_Loading = 2;   //加载中 
+    ClientState_Loaded = 3;    //加载完毕
+    ClientState_Gameing = 4;   //游戏中
+}
+
+
+//天气对应表
+enum Weather
+{
+    None = 0; //雨夹雪
+    Sun = 1;  //晴天
+    Cloud = 2; //多云
+    Rain = 3;  //阴雨天
+    Snow = 4;  //雪天
+    Fog = 5;   //大雾
+    ThunderShower = 6;  //雷雨
+    MoreCloud = 7;    //暴风雪
+    SandStorm = 8;   //沙尘暴
+    Sleet = 9;            //雨夹雪
+}
+
+
+//--------------------------------------- AI 相关--------------------------------------
+
+// 发送格式说明 所有消息经过 MsgHead 包装
+// MsgHead.msgName 为 消息名
+// MsgHead.msgBody 对应消息的Proto序列化内容
+// ID、SendClient 无需关注
+
+//发送形式：
+// 车辆上传数据：      所有车辆通过UDP 广播/组播 协议发送至 智能体服务器,
+// 智能体控制数据 ：   智能体将消息 发送至服务器即可 （IP：192.1.0.110,Port:10015)  || 或根据车辆上传数据的车辆ID、IP 将消息直接发送至客户端
+
+
+//废弃
+message AiOnline  //智能体登录，用于通知服务器智能体上线
+{
+    optional string Value = 1; 
+}
+
+enum WorkState  //工况
+{
+    WorkState_None = 0; 
+    Stabilize = 1;       // 稳像
+    Electronic = 2 ;     // 电传 | 装表
+    PanoramicSolo = 3;   // 周视镜独立
+    Silent = 4;          // 静默
+    HandElectronic = 5;  // 手动装表
+    SupperShoot = 6;     // 超越射击
+	Monitor = 7;         // 监视炮长
+	Alone = 8;           // 独立侦察
+}
+
+message RectCoord    //矩形范围
+{
+    optional Base PointA = 1 ; //坐标点1
+    optional Base PointB = 2 ; //坐标点2
+    optional Base PointC = 3 ; //坐标点3
+    optional Base PointD = 4 ; //坐标点4
+}
+
+enum Terrain  //地形
+{
+    Terrain_None = 0;
+    DaoLu = 1;   // 道路
+    CaoDi = 2;   // 草地
+    TuLu =  3;   // 土路
+    XueDi = 4;   // 雪地
+    ShiLu = 5;   // 石路
+}
+
+enum BulletType        //当前子弹种类
+{
+    BulletType_None = 0; 
+    GJ = 1;    //攻坚弹
+    PJ = 2;    //破甲弹
+    CJ = 3;    //穿甲弹
+    DD = 4;    //导弹
+    JQ = 5;    //机枪
+    LD = 6;    //榴弹
+    HJL = 7;   //左火箭弹
+    HJR = 8;   //右火箭弹
+    DDU = 9;   //上导弹
+    DDD = 10;  //下导弹
+}
+
+enum GearAndControl  //挡位与控制模式
+{
+    Gear_None = 0; 
+    
+    //99*
+    D = 1;
+    H = 2;
+    N = 3;
+    R1 = 4;
+    R2 = 5;
+    PT = 6;
+    
+    //F*
+    Telecontrol = 7;  //遥控
+    Auto = 8;         //自主
+    Follow = 9;       //跟随
+    Empty = 10;       //空挡
+    Forward = 11;     //前进档
+    Backward = 12;    //后退档
+    CenterTurn = 13;  //中心转向档
+}
+
+//上传车辆数据
+message UploadCarInfo   
+{
+    optional int32 CarID = 1;      // 阵营 + 序号   ||  1 -蓝色集团军  2 -红色集团军  &&  1|2|3|4|5 5号为99A
+    
+    //感知数据
+    optional float TagDistance = 2;       //目标距离 
+    optional float TagSpeed = 3;          //目标速度 
+    optional Base TagAngle = 4;           //目标角度 
+    
+    //场景数据
+    optional Weather Weather = 5;          // 当前天气 
+    optional int32 WindPoWer = 6;          // 风力 
+    optional int32 WindDir = 7;            // 风向  0 ~ 360 正北为0/360，正时针旋转数值增大
+    optional Terrain Terrain = 8;          // 当前地形   --具体类型
+    optional RectCoord MissionArea = 9;    // 任务区域 
+    optional int32 Gear = 10;              // 档位   
+    //optional RectCoord DrivingArea = 11; // 可行使区域  
+    
+    
+    //装备数据
+    repeated int32 Bullets = 12;           // 各弹种弹量   99A || 1-穿甲  2-榴弹     3-攻坚弹    4-破甲    5-导弹    6-机枪
+                                           //              F1  || 1-机枪   2-火箭左  3-火箭右  4-导弹上  5-导弹下  
+                                           
+    optional BulletType BulletType = 13;   // 当前弹种               
+    optional int32 MainCapacity = 14;      // 主炮管剩余弹量
+    optional int32 SmokeState = 15;        // 烟幕弹对应位置是否有备弹 || 左一 左二 左三 左四 右一 右二 右三 右四  按照顺序从低位对应字节，如果为1即为是否有备弹
+    optional int32 GrenadeState = 16;      // 榴弹对应位置是否有备弹   || 左  右  按照顺序从低位对应字节，如果为1为是否有备弹                                       
+    optional float Gasoline = 17;          // 剩余里程         
+    optional float HitChassis = 18;        // 损伤情况底盘     0 - 100
+    optional float HitTurret = 19;         // 损伤情况上装     0 - 100
+    optional float HitLeftTrack = 20;      // 损伤情况左履带   0 - 100
+    optional float HitRightTrack = 21;     // 损伤情况右履带   0 - 100                                             
+    optional float MoveSpeed = 22;         // 前进速度
+    optional float RototeSpeed = 23;       // 旋转速度
+    optional Base MoveDirection = 24;      // 前进方向
+    optional float WheelSpeed = 25;        // 轮速计
+    optional float Acceleration = 26;      // 加速度  
+    optional Base Coordinate = 27;         // 经纬度 与 高程
+    optional bool IsCrash = 28;            // 是否发生碰撞
+    optional float TurretH = 29;           // 武器方向角
+    optional float TurretV = 30;           // 武器俯仰角
+    optional float PanoramicSightH = 31;   // 周视镜方向角
+    optional float PanoramicSightV = 32;   // 周视镜俯仰角
+    
+    
+    optional bool IsAi = 33;                 //  是否是AI
+    optional int32 battle_id = 34;           //  对局Id
+    optional float MaxSpeed = 35;            //  最大速度
+    optional float MaxTurretV = 37;          //  武器俯仰角
+    optional float MaxPanoramicSightV = 38;  //  周视镜俯仰角
+    
+}
+
+//上传雷达点云数据
+message UploadRadar
+{
+    optional int32 CarID =  1;      // 阵营 + 序号     ||  1 -蓝色集团军  2 -红色集团军  &&  1|2|3|4|5 5号为99A
+    repeated float Points = 2;      // 点云坐标数据信息
+    repeated float Colors = 3;      // 点云颜色数据信息
+    
+    optional bool IsAi = 4;          // 是否是AI   
+    optional int32 battle_id = 5;    // 对局Id     
+}
+
+//智能体下发指令
+message A2U
+{
+    optional int32 CarID = 1;    // 阵营 + 序号   ||  1|2  &&  1|2|3|4|5
+    optional int32 ControlType = 20;    // 控制方式      || 1 使用行进速度、行进方向控制 | 2 使用 方向盘输入、油门踏板、制动踏板控制
+    
+//底盘运动参数
+    optional float MoveDirection = 2;   // 行进方向角度  0-360
+    optional float MoveSpeed = 3;       // 行进速度      
+    optional float SteerWheel = 4;      // 方向盘输入    -1 ~ 1 向左为负数，向右为正
+    optional float Accelerograph  = 5;  // 油门踏板深度   0 ~ 1 
+    optional float Brake = 6;           // 制动踏板深度   0 ~ 1 
+    optional GearAndControl GearOrControl = 7;    //  || 99A挡位 | F1驾驶模式
+    optional int32 Light = 8;           // 车辆灯光 
+                                        // 按照  F1近光灯 F1远光灯 F1双闪  99A前大灯强 99A前大灯弱 99A伪装灯强 99A伪装灯弱 99A示廓灯 99A左转 99A右转
+                                        // 的顺序，从低位对应字节的数值如果为1，则认为灯光开启
+                       
+//上装运动参数
+    optional float TurretY = 9;            // 武器方向角  如输入数据为10°，则炮塔向右旋转10°。
+    optional float TurretX = 10;           // 武器俯仰角
+    optional float PanoramicSightH = 11;   // 周视镜方向角 如输入数据为10°,则周视镜向右旋转10°。
+    optional float PanoramicSightV = 12;   // 周视镜俯仰角 
+    optional WorkState WorkState = 13;     //  工况
+    optional int32 BulletSwitch = 14;      //  弹类切换  99A || 1-攻坚弹 2-破甲    3-穿甲    4-导弹    5-机枪    6-榴弹
+                                           //            F1  || 1-机枪   2-火箭左  3-火箭右  4-导弹上  5-导弹下      
+    optional int32 SmokeState = 15;        //  烟幕弹选择    || 1左一左二  2左三左四   3右一右二  4右三右四  5左齐发  6右启发 7八发齐射
+    optional int32 Grenade = 16;           //  榴弹击选择    || 1左   2右   
+    //optional float RadarRange = 17;      //  雷达范围                                                
+    optional int32 OtherParameter = 18;    //  其他bool参数  按照顺序从低位对应字节，如果为1则认为下方bool列表的值为true
+    
+    optional WorkState WorkState_Che = 19;    //  车长工况
+    
+//其他bool参数
+//驾驶
+    //optional bool AllPower          //  电源总开关  
+    //optional bool EnginePower       //  引擎开关    
+    //optional bool Horn              //  喇叭        
+//上装    
+    //optional bool MainFire          //  主炮击发        
+    //optional bool GunFire           //  车载机枪击发    
+    //optional bool RocketFire        //  车载火箭弹击发 
+    //optional bool SmokeFire         //  烟幕弹击发    
+    //optional bool Distance          //  测距        
+    //optional bool Insurance         //  击发保险 
+    //optional bool Load              //  装弹     
+    //optional bool Identification    //  目标识别 
+    //optional bool Power             //  上电     
+    //optional bool UnfreezeTurret    //  炮管解锁  
+    //optional bool LaserState        //  激光首末   
+    //optional bool TrackState        //  跟踪      
+    //optional bool ThermalImage      //  热像开关  
+    //optional bool Latch             //  开闩     
+    //optional bool Safety            //  开保险    
+    //optional bool UnLock            //  导弹解锁  
+}
+
+
+//友军广播敌方位置坐标
+message BroadcastCar
+{
+    optional int32 CarID = 1;     // 阵营 + 序号   ||  1|2  &&  1|2|3|4|5
+    optional Base Pos = 2;        // 敌方位置坐标   
+}
+
+// 上传UAV
+message UploadUAVInfo
+{
+	optional int32 CarID = 1;             // 阵营 + 序号   ||  1|2  &&  1|2|3|4|5
+	
+	optional Base Coordinate = 2;         // 经纬度 与 高程
+	optional Base Vector = 3;             // 速度矢量
+	optional Base Acceleration = 4;       // 加速度矢量
+	optional Base Attitude = 5 ;          // 姿态  x-Pitch Y-Roll Z-Yaw
+	optional float RemainingFuelPercent = 6 ;   // 剩余油量百分比
+	optional bool IsWorking = 7;         // 工况是否正常
+	optional int32 LeftMissileCount = 8;   // 左侧导弹数量
+	optional int32 RightMissileCount = 9;  // 右侧导弹数量
+	repeated int32 IdentifiedID = 10;    // 识别到的ID
+	optional float CurrentDistacne = 11; // 当前ID距离 
+	optional int32 NextTargetPoint = 12;   // 下一个目标点
+	optional bool IsAIControl = 13;        // 是否是智能体控制
+	
+	optional int32 ReservedParam1 = 14 ; //预留参数一
+	optional int32 ReservedParam2 = 15 ; //预留参数一
+	optional int32 ReservedParam3 = 16 ; //预留参数一
+	optional int32 ReservedParam4 = 17 ; //预留参数一
+}
+
+//智能体下发无人机
+message A2UAV
+{
+	optional int32 CarID = 1;    // 阵营 + 序号   ||  1|2  &&  1|2|3|4|5
+	
+	repeated Base MoveTags = 2;   // 目标点们
+	optional bool IsBack = 3;     // 是否是返航目标点
+	optional float Speed = 4;     // 期望速度
+	optional bool DefaultState = 5; // 高度是否为默认情况
+	optional float SetHight = 6;    // 设置高度
+	optional bool Identify = 7;     // 识别开关
+	optional bool ThermalEffect = 8;// 热像开关
+	optional int32 TagID = 9;       // 开火目标ID
+	optional bool Fire = 10;        // 开火指令
+	
+
+	optional int32 ReservedParam1 = 11 ; //预留参数一
+	optional int32 ReservedParam2 = 12 ; //预留参数一
+
+	optional float Throttle = 13 ; // 油门
+	optional float Yaw = 14 ;      // 偏航
+	optional float Pitch = 15 ;    // 俯仰
+	optional float Roll = 16 ;     // 滚转
+}
+
+
+//对局结束
+message UpEnd
+{
+  optional int32 State = 1;
+}
+
+
+//击中伤害来源
+message UpHit
+{
+   optional int32 CarID = 1;    // 阵营 + 序号   ||  1|2  &&  1|2|3|4|5
+   optional float Damage = 2;
+   optional int32 Attack_CarID = 3;  
+   optional BulletType BulletType = 4;
+   optional bool IsDead = 5;  
+}
+
+
+// 突发消息   客户端 -> 指控  
+message rev_Events
+{
+	optional int32 CarID = 1;       // 触发消息的装备ID 、阵营 + 序号   ||  1|2  &&  1|2|3|4|5
+	optional int32 Event_Type = 2;  // 事件类型 1-遭遇袭击，2-发现敌方,3-任务完成
+	optional int32 TagCarID = 3;    // 被发现敌方信息
+	
+	optional string  ReservedParam1 = 4; // 预留参数一
+	optional string  ReservedParam2 = 5; // 预留参数二
+}
+
+// 发送接收指令信息  指控->智能体
+message req_CMD
+{
+	optional string CMD_ID=1;         //指令ID
+	optional int32 CMD_Type=2;        //指令类型  0无 1-机动、2-侦查、3-打击
+	repeated int32 CMD_SelectCarIDs=3;  // 选择的车辆目标
+	repeated Base CMD_Tags=4;           //目标点数组
+}
+
+// 接收指令反馈息  指控<-智能体
+message rev_CMD
+{
+	optional string CMD_ID=1;    // 指令ID
+	optional string CarID=2;     // 装备ID
+	optional int32 CMD_State=3;  // 状态反馈  1已接收，2执行中，3指令完成
+}
+
+//发送智能体位置变动信息
+message req_AIPos
+{
+	optional string CarID=1;   // 装备ID
+	optional Base Pos=2; 	  // 位置信息
+}

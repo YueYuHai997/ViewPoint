@@ -1,0 +1,21 @@
+{
+  "server": {
+    "ip": "192.10.10.80",
+    "port": 20003
+  },
+  "room": {
+    "id": 1
+  },
+  "login": {
+    "account": "root",
+    "password": "1"
+  },
+  "display": {
+    "showGrid": true,
+    "showAxis": true,
+    "showTrajectory": true
+  },
+  "log": {
+    "level": "DEBUG"
+  }
+}
