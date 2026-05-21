@@ -22,9 +22,10 @@ class ProtoParser {
     ]);
 
     const typeNames = [
-      'NetMessage', 'MsgCombineSend', 'req_Login',
+      'NetMessage', 'MsgCombineSend', 'req_Login', 'req_ClientInit',
+      'UploadClientDataReq', 'req_Room_State', 'req_Heart', 'req_Disconnect',
       'UploadCarInfo', 'UploadRadar', 'UploadUAVInfo',
-      'EchoCreate', 'SyncBase', 'Base',
+      'EchoCreate', 'EchoDestroy', 'SyncBase', 'Base',
       'Echo99ADriver', 'Echo99AGunner', 'EchoF1Driver', 'EchoF1Gunner',
       'EchoF1AI', 'EchoFire', 'EchoHit', 'UpHit'
     ];
@@ -59,8 +60,9 @@ class ProtoParser {
   decodeAny(typeUrl, value) {
     if (!typeUrl || !value) return null;
 
-    const typeName = typeUrl.split('/').pop();
-    const type = this.messageTypes[typeName] || this.root.lookupType(typeName);
+    const fullName = typeUrl.split('/').pop();
+    const typeName = fullName.includes('.') ? fullName.split('.').pop() : fullName;
+    const type = this.messageTypes[typeName] || this.messageTypes[fullName] || this.root.lookupType(fullName);
 
     if (!type) {
       log.warn('未知消息类型:', typeName);
