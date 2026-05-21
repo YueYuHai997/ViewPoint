@@ -155,6 +155,15 @@ function handleUDPData(buffer) {
 
 function processMessage(decoded) {
   switch (decoded.type) {
+    case 'req_Login': {
+      const status = decoded.data.account || '';
+      if (status === 'ok') {
+        log.info('登录成功');
+      } else {
+        log.warn('登录失败:', status);
+      }
+      break;
+    }
     case 'UploadCarInfo':
       dataManager.processUploadCarInfo(decoded.data);
       break;
