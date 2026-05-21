@@ -39,7 +39,7 @@ class App {
     log.info('初始化三维场景...');
     const sceneContainer = document.getElementById('scene-container');
     this.sceneManager = new SceneManager(sceneContainer);
-    this.sceneManager.init(THREE);
+    await this.sceneManager.init(THREE);
 
     this.cameraController = new CameraController(
       THREE,

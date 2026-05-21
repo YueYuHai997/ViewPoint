@@ -9,7 +9,7 @@ class SceneManager {
     this.animationCallbacks = [];
   }
 
-  init(THREE) {
+  async init(THREE) {
     this.THREE = THREE;
 
     this.scene = new THREE.Scene();
@@ -29,7 +29,7 @@ class SceneManager {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.container.appendChild(this.renderer.domElement);
 
-    const { CSS2DRenderer } = require('three/examples/jsm/renderers/CSS2DRenderer.js');
+    const { CSS2DRenderer } = await import('three/examples/jsm/renderers/CSS2DRenderer.js');
     this.cssRenderer = new CSS2DRenderer();
     this.cssRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.cssRenderer.domElement.style.position = 'absolute';
