@@ -1,5 +1,10 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+
+// 禁用 GPU 加速，防止渲染进程崩溃
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('no-sandbox');
 const Logger = require('./logger');
 const ProtoParser = require('./proto-parser');
 const UDPClient = require('./udp-client');
