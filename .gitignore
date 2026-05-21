@@ -10,6 +10,7 @@ release/
 
 # Logs
 *.log
+logs/
 npm-debug.log*
 
 # OS generated files

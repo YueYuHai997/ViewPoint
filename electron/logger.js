@@ -1,6 +1,11 @@
+const fs = require('fs');
+const path = require('path');
+
 const LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3, NONE: 4 };
 const LEVEL_NAMES = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'NONE'];
 const LEVEL_COLORS = { DEBUG: '#888', INFO: '#4caf50', WARN: '#ff9800', ERROR: '#f44336' };
+
+const LOG_DIR = path.join(__dirname, '..', 'logs');
 
 class Logger {
   constructor(module = 'App') {
@@ -56,6 +61,9 @@ class Logger {
     const fn = level === LEVELS.ERROR ? 'error' : level === LEVELS.WARN ? 'warn' : 'log';
     console[fn](prefix, ...args);
 
+    // 文件日志（UTF-8，不会乱码）
+    Logger._writeFile(`${prefix} ${entry.message}`);
+
     // 通知监听器
     for (const cb of this.listeners) {
       cb(entry);
@@ -86,5 +94,24 @@ class Logger {
 
 Logger._globalLevel = LEVELS.INFO;
 Logger._globalListeners = [];
+Logger._fileStream = null;
+
+Logger.initFileLog = function () {
+  if (Logger._fileStream) return;
+  try {
+    if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+    const date = new Date().toISOString().slice(0, 10);
+    const logFile = path.join(LOG_DIR, `${date}.log`);
+    Logger._fileStream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf-8' });
+  } catch (e) {
+    console.error('[Logger] 创建日志文件失败:', e.message);
+  }
+};
+
+Logger._writeFile = function (line) {
+  if (Logger._fileStream) {
+    Logger._fileStream.write(line + '\n');
+  }
+};
 
 module.exports = Logger;
