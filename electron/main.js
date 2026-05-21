@@ -114,7 +114,7 @@ function handleUDPData(buffer) {
           const real = protoParser.decodeAny(decoded.data.msg.type_url, decoded.data.msg.value);
           if (real) {
             log.info('实际消息:', real.type);
-            processMessage(real);
+            processMessage(real, decoded.data.object_id);
           }
         }
         break;
@@ -131,7 +131,7 @@ function handleUDPData(buffer) {
               const real = protoParser.decodeAny(inner.data.msg.type_url, inner.data.msg.value);
               if (real) {
                 log.info('  子消息[' + i + ']:', real.type);
-                processMessage(real);
+                processMessage(real, inner.data.object_id);
               } else {
                 log.warn('  子消息[' + i + '] 内层解码失败:', inner.data.msg.type_url);
               }
@@ -153,7 +153,7 @@ function handleUDPData(buffer) {
   }
 }
 
-function processMessage(decoded) {
+function processMessage(decoded, objectId) {
   switch (decoded.type) {
     case 'req_Login': {
       const status = decoded.data.account || '';
@@ -173,6 +173,34 @@ function processMessage(decoded) {
     case 'UploadUAVInfo':
       dataManager.processUploadUAVInfo(decoded.data);
       break;
+    case 'Echo99ADriver':
+    case 'EchoF1Driver':
+    case 'EchoF1AI': {
+      if (!objectId) break;
+      const trans = decoded.data.translate;
+      const pos = trans && trans.Pos;
+      const rot = trans && trans.Rot;
+      const driveData = decoded.data.DriveData;
+      const vehicleData = {
+        CarID: objectId,
+        Coordinate: pos ? { x: pos.x, y: pos.y, z: pos.z } : null,
+        MoveDirection: rot ? { x: rot.x, y: rot.y, z: rot.z } : null,
+        MoveSpeed: (driveData && driveData.Speed) || decoded.data.Speed || 0,
+      };
+      dataManager.processUploadCarInfo(vehicleData);
+      break;
+    }
+    case 'Echo99AGunner':
+    case 'EchoF1Gunner': {
+      if (!objectId) break;
+      const existing = dataManager.getVehicle(objectId);
+      if (existing) {
+        existing.turretH = decoded.data.TurretRot || 0;
+        existing.turretV = decoded.data.CannonRotx || 0;
+        dataManager.notify(objectId, existing);
+      }
+      break;
+    }
     case 'EchoCreate':
       log.info('车辆创建事件:', JSON.stringify(decoded.data));
       break;

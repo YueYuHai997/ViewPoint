@@ -15,6 +15,7 @@ class UDPClient extends EventEmitter {
     this.socket = null;
     this.connected = false;
     this.protoParser = null;
+    this.heartbeatTimer = null;
   }
 
   async start() {
@@ -81,6 +82,34 @@ class UDPClient extends EventEmitter {
     this.connected = true;
     this.emit('connected');
     log.info('登录消息已发送, 大小:', buffer.length, 'bytes');
+    this.startHeartbeat();
+  }
+
+  startHeartbeat() {
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), 5000);
+    this.sendHeartbeat();
+  }
+
+  sendHeartbeat() {
+    const NetMessage = this.protoParser.getMessageType('NetMessage');
+    const reqHeart = this.protoParser.getMessageType('req_Heart');
+    if (!NetMessage || !reqHeart) return;
+
+    const heartMsg = reqHeart.create({ count: String(Date.now()) });
+    const heartBuffer = reqHeart.encode(heartMsg).finish();
+
+    const netMsg = NetMessage.create({
+      client_id: 'viewpoint',
+      object_id: 0,
+      msg: {
+        type_url: 'type.googleapis.com/netFrame.req_Heart',
+        value: heartBuffer
+      }
+    });
+
+    const buffer = NetMessage.encode(netMsg).finish();
+    this.send(buffer);
+    log.debug('心跳已发送');
   }
 
   send(buffer) {
@@ -94,6 +123,10 @@ class UDPClient extends EventEmitter {
   }
 
   stop() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
     if (this.socket) {
       log.info('关闭 UDP 连接');
       this.socket.close();
