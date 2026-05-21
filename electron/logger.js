@@ -57,12 +57,14 @@ class Logger {
       timestamp: time.getTime()
     };
 
-    // 控制台输出
-    const fn = level === LEVELS.ERROR ? 'error' : level === LEVELS.WARN ? 'warn' : 'log';
-    console[fn](prefix, ...args);
-
-    // 文件日志（UTF-8，不会乱码）
+    // 文件日志（UTF-8，全量记录）
     Logger._writeFile(`${prefix} ${entry.message}`);
+
+    // 控制台只输出 WARN 及以上
+    if (level >= Logger._consoleLevel) {
+      const fn = level === LEVELS.ERROR ? 'error' : level === LEVELS.WARN ? 'warn' : 'log';
+      console[fn](prefix, ...args);
+    }
 
     // 通知监听器
     for (const cb of this.listeners) {
@@ -93,6 +95,7 @@ class Logger {
 }
 
 Logger._globalLevel = LEVELS.INFO;
+Logger._consoleLevel = LEVELS.WARN; // 控制台只输出 WARN 及以上
 Logger._globalListeners = [];
 Logger._logFile = null;
 

@@ -108,30 +108,39 @@ function handleUDPData(buffer) {
     log.info('收到消息:', decoded.type);
 
     switch (decoded.type) {
+      case 'NetMessage': {
+        // 外层 NetMessage，内部 msg 才是真正的业务消息
+        if (decoded.data.msg) {
+          const real = protoParser.decodeAny(decoded.data.msg.type_url, decoded.data.msg.value);
+          if (real) {
+            log.info('实际消息:', real.type);
+            processMessage(real);
+          }
+        }
+        break;
+      }
       case 'MsgCombineSend': {
         const msgs = decoded.data.msgs || [];
         log.info('批量消息, 数量:', msgs.length);
         for (let i = 0; i < msgs.length; i++) {
           const anyMsg = msgs[i];
-          if (Buffer.isBuffer(anyMsg)) {
-            log.info('  子消息[' + i + '] 是 raw bytes, 尝试直接解码');
-            const inner = protoParser.decodeMessage(anyMsg);
-            if (inner && inner.msg) {
-              const innerDecoded = protoParser.decodeAny(inner.msg.type_url, inner.msg.value);
-              if (innerDecoded) {
-                log.info('  解码成功:', innerDecoded.type);
-                processMessage(innerDecoded);
+          const inner = protoParser.decodeAny(anyMsg.type_url, anyMsg.value);
+          if (inner) {
+            // MsgCombineSend 里的子消息是 NetMessage，需要再解一层
+            if (inner.type === 'NetMessage' && inner.data.msg) {
+              const real = protoParser.decodeAny(inner.data.msg.type_url, inner.data.msg.value);
+              if (real) {
+                log.info('  子消息[' + i + ']:', real.type);
+                processMessage(real);
+              } else {
+                log.warn('  子消息[' + i + '] 内层解码失败:', inner.data.msg.type_url);
               }
+            } else {
+              log.info('  子消息[' + i + ']:', inner.type);
+              processMessage(inner);
             }
           } else {
-            log.info('  子消息[' + i + '] type_url:', anyMsg.type_url || 'null');
-            const inner = protoParser.decodeAny(anyMsg.type_url, anyMsg.value);
-            if (inner) {
-              log.info('  解码成功:', inner.type);
-              processMessage(inner);
-            } else {
-              log.warn('  解码失败:', anyMsg.type_url);
-            }
+            log.warn('  子消息[' + i + '] 解码失败:', anyMsg.type_url);
           }
         }
         break;
