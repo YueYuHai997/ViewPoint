@@ -5,6 +5,7 @@ const ProtoParser = require('./proto-parser');
 const UDPClient = require('./udp-client');
 const DataManager = require('./data-manager');
 
+Logger.initFileLog();
 const log = Logger.create('Main');
 
 let mainWindow = null;
