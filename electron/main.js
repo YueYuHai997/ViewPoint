@@ -15,9 +15,11 @@ let dataManager = null;
 
 // 主进程日志转发到渲染进程
 Logger.onGlobalLog((entry) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('log-entry', entry);
-  }
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('log-entry', entry);
+    }
+  } catch {}
 });
 
 async function createWindow() {
@@ -52,9 +54,11 @@ async function initServices() {
 
   dataManager = new DataManager();
   dataManager.onUpdate((carId, data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('vehicle-update', { carId, data });
-    }
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vehicle-update', { carId, data });
+      }
+    } catch {}
   });
 
   log.info('初始化 UDP 客户端, 服务器:', config.server.ip + ':' + config.server.port);
@@ -67,16 +71,20 @@ async function initServices() {
 
   udpClient.on('connected', () => {
     log.info('UDP 连接成功');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('connection-status', { connected: true });
-    }
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('connection-status', { connected: true });
+      }
+    } catch {}
   });
 
   udpClient.on('disconnected', () => {
     log.warn('UDP 连接断开');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('connection-status', { connected: false });
-    }
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('connection-status', { connected: false });
+      }
+    } catch {}
   });
 
   await udpClient.start();
@@ -102,12 +110,28 @@ function handleUDPData(buffer) {
     switch (decoded.type) {
       case 'MsgCombineSend': {
         const msgs = decoded.data.msgs || [];
-        log.debug('批量消息, 数量:', msgs.length);
-        for (const anyMsg of msgs) {
-          const inner = protoParser.decodeAny(anyMsg.type_url, anyMsg.value);
-          if (inner) {
-            log.info('  子消息:', inner.type);
-            processMessage(inner);
+        log.info('批量消息, 数量:', msgs.length);
+        for (let i = 0; i < msgs.length; i++) {
+          const anyMsg = msgs[i];
+          if (Buffer.isBuffer(anyMsg)) {
+            log.info('  子消息[' + i + '] 是 raw bytes, 尝试直接解码');
+            const inner = protoParser.decodeMessage(anyMsg);
+            if (inner && inner.msg) {
+              const innerDecoded = protoParser.decodeAny(inner.msg.type_url, inner.msg.value);
+              if (innerDecoded) {
+                log.info('  解码成功:', innerDecoded.type);
+                processMessage(innerDecoded);
+              }
+            }
+          } else {
+            log.info('  子消息[' + i + '] type_url:', anyMsg.type_url || 'null');
+            const inner = protoParser.decodeAny(anyMsg.type_url, anyMsg.value);
+            if (inner) {
+              log.info('  解码成功:', inner.type);
+              processMessage(inner);
+            } else {
+              log.warn('  解码失败:', anyMsg.type_url);
+            }
           }
         }
         break;
@@ -138,7 +162,7 @@ function processMessage(decoded) {
       log.info('车辆销毁事件:', JSON.stringify(decoded.data));
       break;
     default:
-      log.debug('未处理的消息类型:', decoded.type);
+      log.info('未处理的消息类型:', decoded.type);
       break;
   }
 }
