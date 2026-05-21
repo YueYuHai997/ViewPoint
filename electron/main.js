@@ -38,6 +38,17 @@ async function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.setMenuBarVisibility(false);
+
+  mainWindow.webContents.on('did-fail-load', (_, code, desc) => {
+    log.error('页面加载失败:', code, desc);
+  });
+  mainWindow.webContents.on('render-process-gone', (_, details) => {
+    log.error('渲染进程崩溃:', details.reason);
+  });
+  mainWindow.on('unresponsive', () => {
+    log.warn('窗口无响应');
+  });
+
   log.info('窗口已创建');
 }
 
@@ -233,6 +244,10 @@ function processMessage(decoded, objectId) {
   }
 }
 
+ipcMain.handle('renderer-error', (_, msg) => {
+  log.error('渲染进程错误:', msg);
+});
+
 ipcMain.handle('get-config', () => {
   return require('../config/default.json');
 });
@@ -249,6 +264,20 @@ ipcMain.handle('set-log-level', (_, level) => {
 
 app.whenReady().then(async () => {
   await createWindow();
+
+  // 等待渲染进程就绪
+  await new Promise((resolve) => {
+    ipcMain.once('renderer-ready', () => {
+      log.info('渲染进程已就绪');
+      resolve();
+    });
+    // 超时保护
+    setTimeout(() => {
+      log.warn('等待渲染进程超时，继续启动');
+      resolve();
+    }, 10000);
+  });
+
   await initServices();
 
   app.on('activate', () => {

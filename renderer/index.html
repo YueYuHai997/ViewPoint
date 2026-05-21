@@ -20,6 +20,17 @@
       <span id="total-vehicles">车辆总数: 0</span>
     </div>
   </div>
-  <script>require('./app.js')</script>
+  <script>
+    window.onerror = (msg, src, line, col, err) => {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.invoke('renderer-error', `${msg} at ${src}:${line}:${col}`);
+    };
+    try {
+      require('./app.js');
+    } catch (e) {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.invoke('renderer-error', e.message + '\n' + e.stack);
+    }
+  </script>
 </body>
 </html>

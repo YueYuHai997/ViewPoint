@@ -87,6 +87,7 @@ class App {
     });
 
     log.info('应用初始化完成');
+    ipcRenderer.send('renderer-ready');
   }
 
   onVehicleUpdate(carId, data) {
