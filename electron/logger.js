@@ -94,23 +94,24 @@ class Logger {
 
 Logger._globalLevel = LEVELS.INFO;
 Logger._globalListeners = [];
-Logger._fileStream = null;
+Logger._logFile = null;
 
 Logger.initFileLog = function () {
-  if (Logger._fileStream) return;
+  if (Logger._logFile) return;
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
     const date = new Date().toISOString().slice(0, 10);
-    const logFile = path.join(LOG_DIR, `${date}.log`);
-    Logger._fileStream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf-8' });
+    Logger._logFile = path.join(LOG_DIR, `${date}.log`);
   } catch (e) {
     console.error('[Logger] 创建日志文件失败:', e.message);
   }
 };
 
 Logger._writeFile = function (line) {
-  if (Logger._fileStream) {
-    Logger._fileStream.write(line + '\n');
+  if (Logger._logFile) {
+    try {
+      fs.appendFileSync(Logger._logFile, line + '\n', 'utf-8');
+    } catch {}
   }
 };
 
