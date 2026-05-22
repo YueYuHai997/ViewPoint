@@ -27,7 +27,8 @@ class ProtoParser {
       'UploadCarInfo', 'UploadRadar', 'UploadUAVInfo',
       'EchoCreate', 'EchoDestroy', 'SyncBase', 'Base',
       'Echo99ADriver', 'Echo99AGunner', 'EchoF1Driver', 'EchoF1Gunner',
-      'EchoF1AI', 'EchoFire', 'EchoHit', 'UpHit'
+      'EchoF1AI', 'EchoFire', 'EchoHit', 'UpHit',
+      'Client_Info', 'Client_Entity', 'Login_Info', 'Init_Info', 'EntityInfo', 'Room_Control'
     ];
 
     // 同名不同包的消息需要显式指定全限定名，避免 lookupType 命中错误版本

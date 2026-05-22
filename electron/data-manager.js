@@ -18,7 +18,7 @@ class DataManager {
     }
   }
 
-  processUploadCarInfo(carInfo) {
+  processUploadCarInfo(carInfo, clientInfo) {
     const carId = carInfo.CarID;
     if (!carId) return;
 
@@ -42,20 +42,44 @@ class DataManager {
         z: 0
       } : existing.rotation || { x: 0, y: 0, z: 0 },
       speed: carInfo.MoveSpeed || 0,
+      rotateSpeed: carInfo.RototeSpeed || 0,
+      wheelSpeed: carInfo.WheelSpeed || 0,
       acceleration: carInfo.Acceleration || 0,
+      maxSpeed: carInfo.MaxSpeed || existing.maxSpeed || 0,
+      gear: carInfo.Gear || 0,
+      isCrash: carInfo.IsCrash || false,
       turretH: carInfo.TurretH || 0,
       turretV: carInfo.TurretV || 0,
+      maxTurretV: carInfo.MaxTurretV || existing.maxTurretV || 0,
+      panoramicSightH: carInfo.PanoramicSightH || 0,
+      panoramicSightV: carInfo.PanoramicSightV || 0,
+      maxPanoramicSightV: carInfo.MaxPanoramicSightV || existing.maxPanoramicSightV || 0,
       damage: {
         chassis: carInfo.HitChassis || 0,
         turret: carInfo.HitTurret || 0,
         leftTrack: carInfo.HitLeftTrack || 0,
         rightTrack: carInfo.HitRightTrack || 0
       },
-      bullets: carInfo.Bullets ? [...carInfo.Bullets] : [],
+      bullets: carInfo.Bullets ? [...carInfo.Bullets] : (existing.bullets || []),
       bulletType: carInfo.BulletType || 0,
       mainCapacity: carInfo.MainCapacity || 0,
+      smokeState: carInfo.SmokeState || 0,
+      grenadeState: carInfo.GrenadeState || 0,
       gasoline: carInfo.Gasoline || 0,
+      target: {
+        distance: carInfo.TagDistance || 0,
+        speed: carInfo.TagSpeed || 0,
+        angle: carInfo.TagAngle || null
+      },
+      environment: {
+        weather: carInfo.Weather || 0,
+        windPower: carInfo.WindPoWer || 0,
+        windDir: carInfo.WindDir || 0,
+        terrain: carInfo.Terrain || 0
+      },
       isAi: carInfo.IsAi || false,
+      battleId: carInfo.battle_id || existing.battleId || 0,
+      clientInfo: clientInfo ? { ...(existing.clientInfo || {}), ...clientInfo } : existing.clientInfo || null,
       lastUpdate: Date.now()
     };
 
@@ -68,6 +92,16 @@ class DataManager {
     this.vehicles.set(carId, vehicle);
     this.notify(carId, vehicle);
     return vehicle;
+  }
+
+  updateClientInfo(carId, clientInfo) {
+    if (!carId || !clientInfo) return;
+    const existing = this.vehicles.get(carId);
+    if (!existing) return;  // 暂不为孤立的 carId 占位
+    existing.clientInfo = { ...(existing.clientInfo || {}), ...clientInfo };
+    existing.lastUpdate = Date.now();
+    this.vehicles.set(carId, existing);
+    this.notify(carId, existing);
   }
 
   processUploadRadar(radarData) {
@@ -84,7 +118,7 @@ class DataManager {
     this.notify(carId, existing);
   }
 
-  processUploadUAVInfo(uavInfo) {
+  processUploadUAVInfo(uavInfo, clientInfo) {
     const carId = uavInfo.CarID;
     if (!carId) return;
 
@@ -112,6 +146,7 @@ class DataManager {
       rightMissile: uavInfo.RightMissileCount || 0,
       identifiedIds: uavInfo.IdentifiedID || [],
       isAi: uavInfo.IsAIControl || false,
+      clientInfo: clientInfo ? { ...(existing.clientInfo || {}), ...clientInfo } : existing.clientInfo || null,
       lastUpdate: Date.now()
     };
 
