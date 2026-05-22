@@ -30,12 +30,18 @@ class ProtoParser {
       'EchoF1AI', 'EchoFire', 'EchoHit', 'UpHit'
     ];
 
+    // 同名不同包的消息需要显式指定全限定名，避免 lookupType 命中错误版本
+    const explicitAliases = {
+      MsgCombineSend: 'netFrame.MsgCombineSend'
+    };
+
     for (const name of typeNames) {
-      const type = this.root.lookupType(name);
-      if (type) {
-        this.messageTypes[name] = type;
-      } else {
-        log.warn('消息类型未找到:', name);
+      const lookupName = explicitAliases[name] || name;
+      try {
+        const type = this.root.lookupType(lookupName);
+        if (type) this.messageTypes[name] = type;
+      } catch (err) {
+        log.warn('消息类型未找到:', lookupName);
       }
     }
 
@@ -62,10 +68,16 @@ class ProtoParser {
 
     const fullName = typeUrl.split('/').pop();
     const typeName = fullName.includes('.') ? fullName.split('.').pop() : fullName;
-    const type = this.messageTypes[typeName] || this.messageTypes[fullName] || this.root.lookupType(fullName);
+
+    // 优先用全限定名查找，避免不同包下同名消息（如 netFrame.MsgCombineSend / NetProt.MsgCombineSend）的歧义
+    let type = null;
+    if (fullName.includes('.')) {
+      try { type = this.root.lookupType(fullName); } catch (_) {}
+    }
+    if (!type) type = this.messageTypes[typeName] || this.messageTypes[fullName] || null;
 
     if (!type) {
-      log.warn('未知消息类型:', typeName);
+      log.warn('未知消息类型:', fullName);
       return null;
     }
 

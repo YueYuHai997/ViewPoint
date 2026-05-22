@@ -1,10 +1,14 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
-// 禁用 GPU 加速，防止渲染进程崩溃
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
+// 设置用户数据目录到项目内，避免 AppData 权限问题
+const userDataDir = path.join(__dirname, '..', '.userdata');
+if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
+app.setPath('userData', userDataDir);
+
 app.commandLine.appendSwitch('no-sandbox');
+
 const Logger = require('./logger');
 const ProtoParser = require('./proto-parser');
 const UDPClient = require('./udp-client');
@@ -35,7 +39,6 @@ async function createWindow() {
     title: 'ViewPoint - 三维战场态势',
     backgroundColor: '#000000',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: true,
       contextIsolation: false
     }
@@ -240,6 +243,71 @@ function processMessage(decoded, objectId) {
       if (destroyId) {
         dataManager.removeVehicle(Number(destroyId));
         log.info('车辆销毁, ID:', destroyId);
+      }
+      break;
+    }
+    case 'UploadClientDataReq': {
+      const d = decoded.data;
+      const clientMetrics = {
+        clientState: d.client_state || 0,
+        cpu: d.cpu_usage || 0,
+        gpu: d.gpu_usage || 0,
+        memory: d.memory_usage || 0,
+        fps: d.fps || 0
+      };
+
+      // 解码内层 Client_Info（NetProt.V3.Client_Info）
+      let clientInfo = null;
+      const ci = d.Client_Info;
+      if (ci && ci.type_url) {
+        const inner = protoParser.decodeAny(ci.type_url, ci.value);
+        if (inner && inner.type === 'Client_Info') {
+          clientInfo = inner.data;
+        } else {
+          log.warn('UploadClientDataReq: Client_Info 解码失败:', ci.type_url);
+        }
+      }
+
+      if (!clientInfo) {
+        log.debug('UploadClientDataReq 无 Client_Info, 指标:', JSON.stringify(clientMetrics));
+        break;
+      }
+
+      const entities = clientInfo.entitys || [];
+      log.debug('UploadClientDataReq 客户端:', clientInfo.ip, clientInfo.client_type, '实体数:', entities.length);
+
+      for (const ent of entities) {
+        const carId = ent.CarID;
+        if (!carId) continue;
+
+        const clientPayload = {
+          ip: clientInfo.ip || '',
+          port: clientInfo.port || '',
+          clientType: clientInfo.client_type || '',
+          groupLeadId: clientInfo.group_lead_client_id || '',
+          loadName: ent.load_name || '',
+          controlMode: ent.control_mode || 0,
+          ...clientMetrics
+        };
+
+        // 解码 ZhiKongInfo → 通常是 UploadCarInfo（无人机时是 UploadUAVInfo）
+        const zk = ent.ZhiKongInfo;
+        let detail = null;
+        if (zk && zk.type_url) {
+          detail = protoParser.decodeAny(zk.type_url, zk.value);
+        }
+
+        if (detail && detail.type === 'UploadCarInfo') {
+          // 确保 CarID 一致后再分发
+          if (!detail.data.CarID) detail.data.CarID = carId;
+          dataManager.processUploadCarInfo(detail.data, clientPayload);
+        } else if (detail && detail.type === 'UploadUAVInfo') {
+          if (!detail.data.CarID) detail.data.CarID = carId;
+          dataManager.processUploadUAVInfo(detail.data, clientPayload);
+        } else {
+          // 没有详细数据，只更新客户端元信息
+          dataManager.updateClientInfo(carId, clientPayload);
+        }
       }
       break;
     }

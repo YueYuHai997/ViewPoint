@@ -1,8 +1,8 @@
 const Vehicle = require('./Vehicle');
 
 class F1Vehicle extends Vehicle {
-  constructor(THREE, scene, data) {
-    super(THREE, scene, data);
+  constructor(THREE, scene, data, opts) {
+    super(THREE, scene, data, opts);
     this.type = 'F1';
     this.build();
     this.createLabel('F1-' + data.number);

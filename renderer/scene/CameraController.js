@@ -93,7 +93,9 @@ class CameraController {
 
   focusOn(position) {
     this.target.set(position.x, position.y, position.z);
-    this.spherical.radius = 200;
+    this.spherical.radius = 500;
+    this.spherical.phi = Math.PI / 4;
+    this.spherical.theta = 0;
     this.applyUpdate();
   }
 

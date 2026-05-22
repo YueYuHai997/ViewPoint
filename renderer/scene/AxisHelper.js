@@ -6,10 +6,10 @@ class AxisHelper {
   }
 
   create() {
-    this.gridHelper = new this.THREE.GridHelper(2000, 100, 0x333333, 0x1a1a1a);
+    this.gridHelper = new this.THREE.GridHelper(20000, 200, 0x333333, 0x1a1a1a);
     this.scene.add(this.gridHelper);
 
-    const axisLength = 500;
+    const axisLength = 5000;
     const createLine = (start, end, color) => {
       const geometry = new this.THREE.BufferGeometry().setFromPoints([
         new this.THREE.Vector3(...start),

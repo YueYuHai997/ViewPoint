@@ -63,22 +63,22 @@ class RightPanel {
         <h4>态势范围</h4>
         <div class="range-control">
           <label>侦察范围 (m):</label>
-          <input type="range" id="range-scout" min="0" max="500" value="${this.rangeConfig.scoutRange}" />
+          <input type="range" id="range-scout" min="0" max="2000" value="${this.rangeConfig.scoutRange}" />
           <span id="range-scout-val">${this.rangeConfig.scoutRange}</span>
         </div>
         <div class="range-control">
           <label>攻击范围 (m):</label>
-          <input type="range" id="range-attack" min="0" max="300" value="${this.rangeConfig.attackRange}" />
+          <input type="range" id="range-attack" min="0" max="500" value="${this.rangeConfig.attackRange}" />
           <span id="range-attack-val">${this.rangeConfig.attackRange}</span>
         </div>
         <div class="range-control">
           <label>雷达范围 (m):</label>
-          <input type="range" id="range-radar" min="0" max="800" value="${this.rangeConfig.radarRange}" />
+          <input type="range" id="range-radar" min="0" max="100" value="${this.rangeConfig.radarRange}" />
           <span id="range-radar-val">${this.rangeConfig.radarRange}</span>
         </div>
         <div class="range-control">
           <label>摄像头范围 (m):</label>
-          <input type="range" id="range-camera" min="0" max="200" value="${this.rangeConfig.cameraRange}" />
+          <input type="range" id="range-camera" min="0" max="1700" value="${this.rangeConfig.cameraRange}" />
           <span id="range-camera-val">${this.rangeConfig.cameraRange}</span>
         </div>
       </div>

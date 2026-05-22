@@ -51,7 +51,7 @@ class App {
     this.axisHelper = new AxisHelper(THREE, this.sceneManager.scene);
     this.axisHelper.create();
 
-    this.vehicleManager = new VehicleManager(THREE, this.sceneManager.scene);
+    this.vehicleManager = new VehicleManager(THREE, this.sceneManager);
     this.rangeVisualizer = new RangeVisualizer(THREE, this.sceneManager.scene);
     this.trajectoryRenderer = new TrajectoryRenderer(THREE, this.sceneManager.scene);
 
@@ -126,6 +126,7 @@ class App {
 
   update(delta) {
     this.cameraController.update();
+    this.rangeVisualizer.update();
 
     this.fpsFrames++;
     const now = Date.now();

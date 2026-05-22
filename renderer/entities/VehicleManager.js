@@ -6,9 +6,10 @@ const Logger = require('../../electron/logger');
 const log = Logger.create('VehicleManager');
 
 class VehicleManager {
-  constructor(THREE, scene) {
+  constructor(THREE, sceneManager) {
     this.THREE = THREE;
-    this.scene = scene;
+    this.scene = sceneManager.scene;
+    this.CSS2DObject = sceneManager.CSS2DObject;
     this.vehicles = new Map();
   }
 
@@ -18,15 +19,16 @@ class VehicleManager {
     }
 
     let vehicle;
+    const opts = { CSS2DObject: this.CSS2DObject };
     switch (data.type) {
       case '99A':
-        vehicle = new Tank99A(this.THREE, this.scene, data);
+        vehicle = new Tank99A(this.THREE, this.scene, data, opts);
         break;
       case 'UAV':
-        vehicle = new UAVEntity(this.THREE, this.scene, data);
+        vehicle = new UAVEntity(this.THREE, this.scene, data, opts);
         break;
       default:
-        vehicle = new F1Vehicle(this.THREE, this.scene, data);
+        vehicle = new F1Vehicle(this.THREE, this.scene, data, opts);
     }
 
     vehicle.addToScene();

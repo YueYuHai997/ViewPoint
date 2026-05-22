@@ -183,6 +183,8 @@ body {
   flex: 1;
   position: relative;
   background: #000;
+  min-width: 100px;
+  min-height: 100px;
 }
 
 /* 右侧面板 */

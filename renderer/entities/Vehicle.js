@@ -1,10 +1,11 @@
 class Vehicle {
-  constructor(THREE, scene, data) {
+  constructor(THREE, scene, data, opts) {
     this.THREE = THREE;
     this.scene = scene;
     this.carId = data.carId;
     this.type = data.type || 'F1';
     this.camp = data.camp || 'blue';
+    this.CSS2DObject = (opts && opts.CSS2DObject) || null;
     this.group = new THREE.Group();
     this.label = null;
     this.trajectory = [];
@@ -19,7 +20,7 @@ class Vehicle {
   }
 
   createLabel(text) {
-    const { CSS2DObject } = require('three/examples/jsm/renderers/CSS2DRenderer.js');
+    if (!this.CSS2DObject) return;
     const div = document.createElement('div');
     div.textContent = text;
     div.style.color = this.camp === 'blue' ? '#64b5f6' : '#ef5350';
@@ -27,7 +28,7 @@ class Vehicle {
     div.style.fontWeight = 'bold';
     div.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
     div.style.pointerEvents = 'none';
-    const label = new CSS2DObject(div);
+    const label = new this.CSS2DObject(div);
     label.position.set(0, 5, 0);
     this.group.add(label);
     this.label = label;

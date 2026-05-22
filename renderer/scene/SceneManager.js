@@ -15,13 +15,16 @@ class SceneManager {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0a0a);
 
+    const w = this.container.clientWidth || window.innerWidth;
+    const h = this.container.clientHeight || window.innerHeight;
+
     this.camera = new THREE.PerspectiveCamera(
       60,
-      this.container.clientWidth / this.container.clientHeight,
+      w / h,
       0.1,
       100000
     );
-    this.camera.position.set(0, 200, 300);
+    this.camera.position.set(0, 500, 1000);
     this.camera.lookAt(0, 0, 0);
 
     try {
@@ -34,14 +37,16 @@ class SceneManager {
       console.error('WebGL 初始化失败:', e);
       this.renderer = new THREE.WebGLRenderer({ antialias: false });
     }
-    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.container.appendChild(this.renderer.domElement);
 
+    this.CSS2DObject = null;
     try {
-      const { CSS2DRenderer } = await import('three/examples/jsm/renderers/CSS2DRenderer.js');
-      this.cssRenderer = new CSS2DRenderer();
-      this.cssRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
+      const mod = require('three/examples/jsm/renderers/CSS2DRenderer.js');
+      this.CSS2DObject = mod.CSS2DObject;
+      this.cssRenderer = new mod.CSS2DRenderer();
+      this.cssRenderer.setSize(w, h);
       this.cssRenderer.domElement.style.position = 'absolute';
       this.cssRenderer.domElement.style.top = '0';
       this.cssRenderer.domElement.style.pointerEvents = 'none';
@@ -53,8 +58,11 @@ class SceneManager {
     const ambientLight = new THREE.AmbientLight(0x404040, 2);
     this.scene.add(ambientLight);
 
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+    this.scene.add(hemiLight);
+
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-    dirLight.position.set(100, 200, 100);
+    dirLight.position.set(1000, 2000, 1000);
     this.scene.add(dirLight);
 
     this.clock = new THREE.Clock();

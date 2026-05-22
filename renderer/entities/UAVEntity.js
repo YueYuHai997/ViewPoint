@@ -1,8 +1,8 @@
 const Vehicle = require('./Vehicle');
 
 class UAVEntity extends Vehicle {
-  constructor(THREE, scene, data) {
-    super(THREE, scene, data);
+  constructor(THREE, scene, data, opts) {
+    super(THREE, scene, data, opts);
     this.type = 'UAV';
     this.build();
     this.createLabel('UAV-' + data.number);
