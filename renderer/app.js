@@ -11,6 +11,8 @@ const LeftPanel = require('./ui/LeftPanel');
 const RightPanel = require('./ui/RightPanel');
 const Toolbar = require('./ui/Toolbar');
 const LogPanel = require('./ui/LogPanel');
+const Compass = require('./ui/Compass');
+const HeatmapVisualizer = require('./visualization/HeatmapVisualizer');
 
 const log = Logger.create('App');
 
@@ -54,6 +56,9 @@ class App {
     this.vehicleManager = new VehicleManager(THREE, this.sceneManager);
     this.rangeVisualizer = new RangeVisualizer(THREE, this.sceneManager.scene);
     this.trajectoryRenderer = new TrajectoryRenderer(THREE, this.sceneManager.scene);
+    this.heatmap = new HeatmapVisualizer(THREE, this.sceneManager.scene);
+    this.compass = new Compass(sceneContainer);
+    this.heatmapTickCounter = 0;
 
     this.leftPanel = new LeftPanel(
       document.getElementById('left-panel'),
@@ -73,6 +78,17 @@ class App {
         this.cameraController.reset();
         log.info('视角已复位');
       },
+      onTopView: () => {
+        const list = Array.from(this.vehicles.values());
+        this.cameraController.topDownView(list);
+        log.info('切换到顶视图，覆盖车辆数:', list.length);
+      },
+      onToggleHeatmap: () => {
+        const on = this.heatmap.toggle();
+        if (on) this.heatmap.update(Array.from(this.vehicles.values()));
+        log.info('热力图:', on ? '开启' : '关闭');
+        return on;
+      },
       onResetScene: () => this.resetScene()
     });
 
@@ -91,6 +107,20 @@ class App {
   }
 
   onVehicleUpdate(carId, data) {
+    // data=null 表示该 carId 被移除（孤儿迁移、EchoDestroy 等）
+    if (data === null || data === undefined) {
+      this.vehicles.delete(carId);
+      this.vehicleManager.removeVehicle(carId);
+      this.trajectoryRenderer.remove(carId);
+      if (this.rangeVisualizer && this.rangeVisualizer.removeRanges) this.rangeVisualizer.removeRanges(carId);
+      this.leftPanel.updateList(Array.from(this.vehicles.values()));
+      this.toolbar.setVehicleCount(this.vehicles.size);
+      const totalEl = document.getElementById('total-vehicles');
+      if (totalEl) totalEl.textContent = `车辆总数: ${this.vehicles.size}`;
+      log.info('清除车辆:', carId);
+      return;
+    }
+
     this.vehicles.set(carId, data);
     this.updateCount++;
 
@@ -125,8 +155,19 @@ class App {
   }
 
   update(delta) {
-    this.cameraController.update();
+    this.cameraController.update(delta);
     this.rangeVisualizer.update();
+
+    // 罗盘跟随相机方位角
+    if (this.compass) this.compass.update(this.cameraController.getAzimuth());
+
+    // 热力图每 ~6 帧刷一次（约 10Hz），降低 canvas 重绘成本
+    if (this.heatmap && this.heatmap.enabled) {
+      this.heatmapTickCounter = (this.heatmapTickCounter + 1) % 6;
+      if (this.heatmapTickCounter === 0) {
+        this.heatmap.update(Array.from(this.vehicles.values()));
+      }
+    }
 
     this.fpsFrames++;
     const now = Date.now();
@@ -148,6 +189,7 @@ class App {
     this.rangeVisualizer.clear();
     this.trajectoryRenderer.clear();
     this.vehicles.clear();
+    if (this.heatmap) this.heatmap.update([]);
     this.leftPanel.updateList([]);
     this.rightPanel.render();
     this.cameraController.reset();

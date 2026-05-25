@@ -14,8 +14,6 @@ class RangeVisualizer {
       this.rangeObjects.set(carId, ranges);
     }
 
-    const pos = vehicle.getPosition();
-
     // 收集所有活跃范围，按半径从大到小排序渲染顺序
     const activeRanges = [];
     if (config.scoutRange > 0) activeRanges.push({ key: 'scout', radius: config.scoutRange });
@@ -23,14 +21,15 @@ class RangeVisualizer {
     if (config.cameraRange > 0) activeRanges.push({ key: 'camera', radius: config.cameraRange });
     activeRanges.sort((a, b) => b.radius - a.radius);
 
-    // 侦察范围
-    this._updateSphereRange(ranges, 'scout', pos, config.scoutRange, 0x00bcd4, 0.15, activeRanges);
+    // 全部挂到 vehicle.group 下，自动跟随车体平移/旋转
+    // 侦察范围 - 球体
+    this._updateSphereRange(ranges, 'scout', vehicle, config.scoutRange, 0x00bcd4, 0.15, activeRanges);
 
-    // 攻击范围
-    this._updateSphereRange(ranges, 'attack', pos, config.attackRange, 0xff1744, 0.12, activeRanges);
+    // 攻击范围 - 球体
+    this._updateSphereRange(ranges, 'attack', vehicle, config.attackRange, 0xff1744, 0.12, activeRanges);
 
     // 雷达范围 - 圆盘 + 扫描线
-    this._updateRadarRange(ranges, pos, config.radarRange);
+    this._updateRadarRange(ranges, vehicle, config.radarRange);
 
     // 摄像头范围 - 锥型实体（锥尖在车体，朝向车头）
     this._updateCameraRange(ranges, vehicle, config.cameraRange, activeRanges);
@@ -52,11 +51,12 @@ class RangeVisualizer {
     });
   }
 
-  _updateSphereRange(ranges, key, pos, radius, color, opacity, activeRanges) {
+  _updateSphereRange(ranges, key, vehicle, radius, color, opacity, activeRanges) {
     if (radius <= 0) {
       if (ranges[key]) ranges[key].visible = false;
       return;
     }
+    const targetParent = (vehicle && vehicle.group) || this.scene;
     const renderOrder = this._getRenderOrder(key, activeRanges);
     if (ranges[key]) {
       if (ranges[key]._radius !== radius) {
@@ -64,7 +64,11 @@ class RangeVisualizer {
         ranges[key].geometry = new this.THREE.SphereGeometry(radius, 32, 32);
         ranges[key]._radius = radius;
       }
-      ranges[key].position.copy(pos);
+      if (ranges[key].parent !== targetParent) {
+        if (ranges[key].parent) ranges[key].parent.remove(ranges[key]);
+        targetParent.add(ranges[key]);
+      }
+      ranges[key].position.set(0, 0, 0);
       ranges[key].visible = true;
       ranges[key].renderOrder = renderOrder;
     } else {
@@ -73,17 +77,19 @@ class RangeVisualizer {
       ranges[key] = new this.THREE.Mesh(geo, mat);
       ranges[key]._radius = radius;
       ranges[key].renderOrder = renderOrder;
-      this.scene.add(ranges[key]);
-      ranges[key].position.copy(pos);
+      ranges[key].position.set(0, 0, 0);
+      targetParent.add(ranges[key]);
     }
   }
 
-  _updateRadarRange(ranges, pos, radius) {
+  _updateRadarRange(ranges, vehicle, radius) {
     if (radius <= 0) {
       if (ranges.radar) ranges.radar.visible = false;
       if (ranges.radarLine) ranges.radarLine.visible = false;
       return;
     }
+
+    const targetParent = (vehicle && vehicle.group) || this.scene;
 
     // 圆盘
     if (ranges.radar) {
@@ -92,8 +98,12 @@ class RangeVisualizer {
         ranges.radar.geometry = new this.THREE.CircleGeometry(radius, 64);
         ranges.radar._radius = radius;
       }
-      ranges.radar.position.copy(pos);
-      ranges.radar.position.y += 0.1;
+      if (ranges.radar.parent !== targetParent) {
+        if (ranges.radar.parent) ranges.radar.parent.remove(ranges.radar);
+        targetParent.add(ranges.radar);
+      }
+      ranges.radar.position.set(0, 0.1, 0);
+      ranges.radar.rotation.x = -Math.PI / 2;
       ranges.radar.visible = true;
     } else {
       const geo = new this.THREE.CircleGeometry(radius, 64);
@@ -102,9 +112,8 @@ class RangeVisualizer {
       ranges.radar._radius = radius;
       ranges.radar.rotation.x = -Math.PI / 2;
       ranges.radar.renderOrder = 10;
-      this.scene.add(ranges.radar);
-      ranges.radar.position.copy(pos);
-      ranges.radar.position.y += 0.1;
+      ranges.radar.position.set(0, 0.1, 0);
+      targetParent.add(ranges.radar);
     }
 
     // 扫描线
@@ -117,8 +126,12 @@ class RangeVisualizer {
         ]);
         ranges.radarLine._radius = radius;
       }
-      ranges.radarLine.position.copy(pos);
-      ranges.radarLine.position.y += 0.2;
+      if (ranges.radarLine.parent !== targetParent) {
+        if (ranges.radarLine.parent) ranges.radarLine.parent.remove(ranges.radarLine);
+        targetParent.add(ranges.radarLine);
+      }
+      ranges.radarLine.position.set(0, 0.2, 0);
+      ranges.radarLine.rotation.x = -Math.PI / 2;
       ranges.radarLine.visible = true;
       if (!this.radarLines.includes(ranges.radarLine)) {
         this.radarLines.push(ranges.radarLine);
@@ -133,9 +146,8 @@ class RangeVisualizer {
       ranges.radarLine._radius = radius;
       ranges.radarLine.rotation.x = -Math.PI / 2;
       ranges.radarLine.renderOrder = 11;
-      this.scene.add(ranges.radarLine);
-      ranges.radarLine.position.copy(pos);
-      ranges.radarLine.position.y += 0.2;
+      ranges.radarLine.position.set(0, 0.2, 0);
+      targetParent.add(ranges.radarLine);
       this.radarLines.push(ranges.radarLine);
     }
   }

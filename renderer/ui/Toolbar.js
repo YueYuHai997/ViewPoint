@@ -10,6 +10,8 @@ class Toolbar {
     this.container.innerHTML = `
       <div class="toolbar-left">
         <button id="btn-reset-view" title="复位视角 (R)">视角复位</button>
+        <button id="btn-top-view" title="切换到顶视图">顶视图</button>
+        <button id="btn-heatmap" title="切换战场热力图">热力图</button>
         <button id="btn-reset-scene" title="重置场景">场景重置</button>
       </div>
       <div class="toolbar-center">
@@ -27,9 +29,25 @@ class Toolbar {
       if (this.callbacks.onResetView) this.callbacks.onResetView();
     });
 
+    this.container.querySelector('#btn-top-view').addEventListener('click', () => {
+      if (this.callbacks.onTopView) this.callbacks.onTopView();
+    });
+
+    this.container.querySelector('#btn-heatmap').addEventListener('click', () => {
+      if (this.callbacks.onToggleHeatmap) {
+        const on = this.callbacks.onToggleHeatmap();
+        this.setHeatmapActive(!!on);
+      }
+    });
+
     this.container.querySelector('#btn-reset-scene').addEventListener('click', () => {
       if (this.callbacks.onResetScene) this.callbacks.onResetScene();
     });
+  }
+
+  setHeatmapActive(on) {
+    const el = this.container.querySelector('#btn-heatmap');
+    if (el) el.classList.toggle('active', on);
   }
 
   setConnectionStatus(connected) {

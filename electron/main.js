@@ -196,34 +196,38 @@ function processMessage(decoded, objectId) {
     case 'EchoF1Driver':
     case 'EchoF1AI': {
       if (!objectId) break;
+      // NetMessage.object_id 是服务端 raw 句柄，需要映射成业务 CarID（EchoCreate 时登记）
+      const carId = dataManager.resolveCarId(objectId);
       const trans = decoded.data.translate;
       const pos = trans && trans.Pos;
       const rot = trans && trans.Rot;
       const driveData = decoded.data.DriveData;
-      const vehicleData = {
-        CarID: objectId,
-        Coordinate: pos ? { x: pos.x, y: pos.y, z: pos.z } : null,
-        MoveDirection: rot ? { x: rot.x, y: rot.y, z: rot.z } : null,
-        MoveSpeed: (driveData && driveData.Speed) || decoded.data.Speed || 0,
-      };
-      dataManager.processUploadCarInfo(vehicleData);
+      const speed = (driveData && driveData.Speed) || decoded.data.Speed || 0;
+      // 高频同步通道：独占位置 / 旋转 / 速度，绕开 UploadCarInfo 的覆盖
+      dataManager.processSyncTransform(carId, pos, rot, speed);
       break;
     }
     case 'Echo99AGunner':
     case 'EchoF1Gunner': {
       if (!objectId) break;
-      const existing = dataManager.getVehicle(objectId);
+      const carId = dataManager.resolveCarId(objectId);
+      const existing = dataManager.getVehicle(carId);
       if (existing) {
         existing.turretH = decoded.data.TurretRot || 0;
         existing.turretV = decoded.data.CannonRotx || 0;
-        dataManager.notify(objectId, existing);
+        dataManager.notify(carId, existing);
       }
       break;
     }
     case 'EchoCreate': {
       const d = decoded.data;
-      const carId = d.ID || objectId;
+      const rawId = (d.ID !== undefined && d.ID !== null) ? d.ID : objectId;
+      // 业务 CarID = Camp*10+Number（Number>=10 时 Camp*100+Number）；缺字段时退回 raw
+      const carId = DataManager.encodeCarId(d.Camp, d.Number) || rawId;
       if (carId) {
+        // 登记 raw → synthetic，方便后续 Echo*Driver/Gunner 用 object_id 找回业务 ID
+        if (rawId && rawId !== carId) dataManager.registerRawId(rawId, carId);
+
         const pos = d.Cteatetrans && d.Cteatetrans.Pos;
         const rot = d.Cteatetrans && d.Cteatetrans.Rot;
         dataManager.processUploadCarInfo({
@@ -234,15 +238,16 @@ function processMessage(decoded, objectId) {
           Coordinate: pos ? { x: pos.x, y: pos.y, z: pos.z } : null,
           MoveDirection: rot ? { x: rot.x, y: rot.y, z: rot.z } : null,
         });
-        log.info('车辆创建:', d.Name || '', 'ID:', carId, '阵营:', d.Camp, '编号:', d.Number);
+        log.info('车辆创建:', d.Name || '', 'CarID:', carId, '(raw:', rawId + ')', '阵营:', d.Camp, '编号:', d.Number);
       }
       break;
     }
     case 'EchoDestroy': {
-      const destroyId = (decoded.data && decoded.data.Value1) || objectId;
-      if (destroyId) {
-        dataManager.removeVehicle(Number(destroyId));
-        log.info('车辆销毁, ID:', destroyId);
+      const rawDestroyId = (decoded.data && decoded.data.Value1) || objectId;
+      if (rawDestroyId) {
+        const carId = dataManager.resolveCarId(Number(rawDestroyId));
+        dataManager.removeVehicle(carId);
+        log.info('车辆销毁, CarID:', carId, '(raw:', rawDestroyId + ')');
       }
       break;
     }

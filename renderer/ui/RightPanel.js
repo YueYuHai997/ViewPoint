@@ -49,10 +49,10 @@ class RightPanel {
     this.container = container;
     this.selectedVehicle = null;
     this.rangeConfig = {
-      scoutRange: 0,
-      attackRange: 0,
-      radarRange: 0,
-      cameraRange: 0
+      scoutRange: 1500,
+      attackRange: 500,
+      radarRange: 100,
+      cameraRange: 1500
     };
     this.onRangeChange = null;
     this.render();
@@ -70,6 +70,7 @@ class RightPanel {
   }
 
   showVehicle(vehicle) {
+    const isNewSelection = !this.selectedVehicle || this.selectedVehicle.carId !== vehicle.carId;
     this.selectedVehicle = vehicle;
     const infoEl = this.container.querySelector('#vehicle-info');
     if (!infoEl || !vehicle) return;
@@ -208,6 +209,11 @@ class RightPanel {
           if (this.onRangeChange) this.onRangeChange(vehicle.carId, this.rangeConfig);
         });
       }
+    }
+
+    // 切换到新车辆时，自动按当前（默认或上次调整后的）参数渲染一次范围
+    if (isNewSelection && this.onRangeChange) {
+      this.onRangeChange(vehicle.carId, this.rangeConfig);
     }
   }
 

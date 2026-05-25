@@ -5,7 +5,53 @@ const log = Logger.create('DataManager');
 class DataManager {
   constructor() {
     this.vehicles = new Map();
+    // 服务端 raw object_id（EchoCreate.ID / NetMessage.object_id）→ 业务 CarID（Camp*10+Number 或 Camp*100+Number）
+    this.rawIdToCarId = new Map();
     this.listeners = [];
+  }
+
+  // 由 Camp + Number 计算业务 CarID：Number<10 → Camp*10+Number；Number>=10 → Camp*100+Number
+  static encodeCarId(camp, number) {
+    if (!camp || !number) return null;
+    return number >= 10 ? camp * 100 + number : camp * 10 + number;
+  }
+
+  // 登记 raw_id → 业务 CarID 映射（EchoCreate 时调用）
+  registerRawId(rawId, carId) {
+    if (rawId === undefined || rawId === null || !carId) return;
+    if (rawId === carId) return;  // 本就一致就不需要映射
+    const r = Number(rawId), c = Number(carId);
+    this.rawIdToCarId.set(r, c);
+
+    // sync 比 EchoCreate 先到时，rawId 下会有一个临时占位车辆，要迁移到正确的 carId 并通知渲染端删除孤儿
+    const stale = this.vehicles.get(r);
+    if (stale) {
+      log.info('迁移孤儿车辆 raw:', r, '→ unified:', c);
+      const target = this.vehicles.get(c);
+      if (target) {
+        // 已有正主 → 把 sync 写过的字段并入
+        if (stale.position) target.position = stale.position;
+        if (stale.rotation) target.rotation = stale.rotation;
+        if (stale.speed != null) target.speed = stale.speed;
+        target._syncOwned = stale._syncOwned || target._syncOwned;
+      } else {
+        // 还没有正主 → 直接把 stale 改名挂到 c
+        stale.carId = c;
+        this.vehicles.set(c, stale);
+      }
+      this.vehicles.delete(r);
+      // 通过 notify(rawId, null) 告诉渲染端：这辆孤儿要从场景移除
+      this.notify(r, null);
+    }
+  }
+
+  // 把 raw object_id 解析成业务 CarID；如果没有映射就原样返回
+  resolveCarId(rawIdOrCarId) {
+    if (rawIdOrCarId === undefined || rawIdOrCarId === null) return null;
+    const n = Number(rawIdOrCarId);
+    if (this.vehicles.has(n)) return n;            // 已经是业务 CarID
+    if (this.rawIdToCarId.has(n)) return this.rawIdToCarId.get(n);
+    return n;                                       // 兜底：原样返回
   }
 
   onUpdate(callback) {
@@ -18,12 +64,55 @@ class DataManager {
     }
   }
 
+  // 高频同步数据通道：Echo99ADriver / EchoF1Driver / EchoF1AI 直接走这里
+  // 仅更新位置 / 旋转 / 速度，并打上 _syncOwned 标记；之后 UploadCarInfo / EchoCreate 不会再覆写这三项
+  processSyncTransform(carId, pos, rot, speed) {
+    if (!carId) return;
+    let existing = this.vehicles.get(carId);
+    const isNew = !existing;
+    if (isNew) {
+      // 同步消息先到达 → 用最小信息建一个占位车辆，等 EchoCreate / UploadCarInfo 把元信息补齐
+      existing = {
+        carId,
+        type: this.getVehicleType(carId),
+        camp: this.getCamp(carId),
+        number: this.getNumber(carId),
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        speed: 0,
+        damage: {},
+        lastUpdate: Date.now()
+      };
+      this.vehicles.set(carId, existing);
+      log.info('新车辆(sync):', existing.type + '-' + existing.number, '(' + existing.camp + ')', 'ID:', carId);
+    }
+
+    if (pos) {
+      existing.position = {
+        x: (pos.x || 0) / 100,
+        y: (pos.z || 0) / 100,
+        z: (pos.y || 0) / 100
+      };
+    }
+    if (rot) {
+      existing.rotation = { x: 0, y: rot.y || 0, z: 0 };
+    }
+    if (speed !== undefined && speed !== null) {
+      existing.speed = speed;
+    }
+    existing._syncOwned = true;
+    existing.lastUpdate = Date.now();
+    this.notify(carId, existing);
+  }
+
   processUploadCarInfo(carInfo, clientInfo) {
     const carId = carInfo.CarID;
     if (!carId) return;
 
     const existing = this.vehicles.get(carId) || {};
     const isNew = !this.vehicles.has(carId);
+    // 一旦收到过 Echo*Driver 的同步数据，位置/旋转/速度归同步通道独占，不被这里覆盖
+    const syncOwned = existing._syncOwned === true;
 
     const vehicle = {
       ...existing,
@@ -31,17 +120,17 @@ class DataManager {
       type: this.getVehicleType(carId),
       camp: carInfo.Camp ? (carInfo.Camp === 1 ? 'blue' : carInfo.Camp === 2 ? 'red' : this.getCamp(carId)) : this.getCamp(carId),
       number: carInfo.Number || this.getNumber(carId),
-      position: carInfo.Coordinate ? {
+      position: (!syncOwned && carInfo.Coordinate) ? {
         x: (carInfo.Coordinate.x || 0) / 100,
         y: (carInfo.Coordinate.z || 0) / 100,
         z: (carInfo.Coordinate.y || 0) / 100
       } : existing.position || { x: 0, y: 0, z: 0 },
-      rotation: carInfo.MoveDirection ? {
+      rotation: (!syncOwned && carInfo.MoveDirection) ? {
         x: 0,
         y: carInfo.MoveDirection.y || 0,
         z: 0
       } : existing.rotation || { x: 0, y: 0, z: 0 },
-      speed: carInfo.MoveSpeed || 0,
+      speed: syncOwned ? (existing.speed || 0) : (carInfo.MoveSpeed || 0),
       rotateSpeed: carInfo.RototeSpeed || 0,
       wheelSpeed: carInfo.WheelSpeed || 0,
       acceleration: carInfo.Acceleration || 0,
@@ -84,7 +173,11 @@ class DataManager {
     };
 
     if (isNew) {
-      log.info('新车辆:', vehicle.type + '-' + vehicle.number, '(' + vehicle.camp + ')', 'ID:', carId);
+      const raw = carInfo.Coordinate;
+      const rawStr = raw ? `raw(${(raw.x || 0).toFixed(1)}, ${(raw.y || 0).toFixed(1)}, ${(raw.z || 0).toFixed(1)})` : 'raw=none';
+      const p = vehicle.position;
+      const dispStr = `disp(${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`;
+      log.info('新车辆:', vehicle.type + '-' + vehicle.number, '(' + vehicle.camp + ')', 'ID:', carId, '|', rawStr, '→', dispStr);
     } else {
       log.debug('更新车辆:', carId, '位置:', JSON.stringify(vehicle.position));
     }
@@ -162,21 +255,22 @@ class DataManager {
   }
 
   getVehicleType(carId) {
-    const num = carId % 10;
+    const num = this.getNumber(carId);
     if (num === 5) return '99A';
     if (carId >= 50 && carId <= 53) return 'UAV';
     return 'F1';
   }
 
   getCamp(carId) {
-    const campDigit = Math.floor(carId / 10);
-    if (campDigit === 1 || campDigit === 10) return 'blue';
-    if (campDigit === 2 || campDigit === 20) return 'red';
+    // 业务编码：Number<10 时 CarID = Camp*10+Number；Number>=10 时 CarID = Camp*100+Number
+    const campDigit = carId >= 100 ? Math.floor(carId / 100) : Math.floor(carId / 10);
+    if (campDigit === 1) return 'blue';
+    if (campDigit === 2) return 'red';
     return 'unknown';
   }
 
   getNumber(carId) {
-    return carId % 10;
+    return carId >= 100 ? carId % 100 : carId % 10;
   }
 
   getVehicle(carId) {
@@ -188,13 +282,21 @@ class DataManager {
   }
 
   removeVehicle(carId) {
+    if (carId == null) return;
     log.info('移除车辆:', carId);
     this.vehicles.delete(carId);
+    // 一并清掉指向它的 raw→synthetic 映射
+    for (const [rawId, synthetic] of this.rawIdToCarId) {
+      if (synthetic === carId) this.rawIdToCarId.delete(rawId);
+    }
+    // 通知渲染端清掉 3D 对象 / 轨迹 / 范围
+    this.notify(carId, null);
   }
 
   clear() {
     log.info('清空所有车辆数据');
     this.vehicles.clear();
+    this.rawIdToCarId.clear();
   }
 }
 

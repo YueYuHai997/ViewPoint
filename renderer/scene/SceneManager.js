@@ -4,6 +4,8 @@ class SceneManager {
     this.scene = null;
     this.camera = null;
     this.renderer = null;
+    this.composer = null;
+    this.bloomPass = null;
     this.cssRenderer = null;
     this.clock = null;
     this.animationCallbacks = [];
@@ -13,7 +15,8 @@ class SceneManager {
     this.THREE = THREE;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0a0a);
+    this.scene.background = new THREE.Color(0x05070d);
+    this.scene.fog = new THREE.Fog(0x05070d, 8000, 30000);
 
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
@@ -39,7 +42,29 @@ class SceneManager {
     }
     this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.container.appendChild(this.renderer.domElement);
+
+    // ----- 后处理：Bloom 辉光 -----
+    try {
+      const { EffectComposer } = require('three/examples/jsm/postprocessing/EffectComposer.js');
+      const { RenderPass } = require('three/examples/jsm/postprocessing/RenderPass.js');
+      const { UnrealBloomPass } = require('three/examples/jsm/postprocessing/UnrealBloomPass.js');
+      const { OutputPass } = require('three/examples/jsm/postprocessing/OutputPass.js');
+
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.setSize(w, h);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+      // strength / radius / threshold —— 阈值低一点让范围/网格线也吃到光晕
+      this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.7, 0.55, 0.5);
+      this.composer.addPass(this.bloomPass);
+      this.composer.addPass(new OutputPass());
+    } catch (e) {
+      console.error('Bloom 后处理初始化失败，将退回普通渲染:', e);
+      this.composer = null;
+    }
 
     this.CSS2DObject = null;
     try {
@@ -78,6 +103,8 @@ class SceneManager {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    if (this.composer) this.composer.setSize(w, h);
+    if (this.bloomPass) this.bloomPass.setSize(w, h);
     if (this.cssRenderer) this.cssRenderer.setSize(w, h);
   }
 
@@ -91,7 +118,11 @@ class SceneManager {
     for (const cb of this.animationCallbacks) {
       cb(delta);
     }
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) {
+      this.composer.render(delta);
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
     if (this.cssRenderer) this.cssRenderer.render(this.scene, this.camera);
   }
 
