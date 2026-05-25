@@ -10,10 +10,31 @@ class DataManager {
     this.listeners = [];
   }
 
-  // 由 Camp + Number 计算业务 CarID：Number<10 → Camp*10+Number；Number>=10 → Camp*100+Number
+  // 由 Camp + Number 计算业务 CarID：
+  //   1) 先把 Camp 压回单数字蓝/红 ID：1/10 → 1，2/20 → 2
+  //   2) Number<10 用 ×10，Number≥10 用 ×100
+  //   例：Camp=2,Number=5 → 25；Camp=2,Number=11 → 211；Camp=10,Number=11 → 111；Camp=20,Number=12 → 212
   static encodeCarId(camp, number) {
     if (!camp || !number) return null;
-    return number >= 10 ? camp * 100 + number : camp * 10 + number;
+    const campId = camp >= 10 ? Math.floor(camp / 10) : camp;
+    return number >= 10 ? campId * 100 + number : campId * 10 + number;
+  }
+
+  // 把服务端 Camp 字段（可能是 1/2/10/20）映射成 'blue'/'red'/'unknown'
+  static mapCamp(rawCamp) {
+    if (rawCamp === 1 || rawCamp === 10) return 'blue';
+    if (rawCamp === 2 || rawCamp === 20) return 'red';
+    return null;
+  }
+
+  // 从 EchoCreate.Name / Client_Entity.load_name 等字符串里识别车辆类型
+  static typeFromName(name) {
+    if (!name || typeof name !== 'string') return null;
+    const u = name.toUpperCase();
+    if (u.includes('UAV')) return 'UAV';
+    if (u.includes('99A') || u.includes('A99')) return '99A';
+    if (u.includes('F1')) return 'F1';
+    return null;
   }
 
   // 登记 raw_id → 业务 CarID 映射（EchoCreate 时调用）
@@ -114,11 +135,18 @@ class DataManager {
     // 一旦收到过 Echo*Driver 的同步数据，位置/旋转/速度归同步通道独占，不被这里覆盖
     const syncOwned = existing._syncOwned === true;
 
+    // type 优先级：本次 Name → 已存的 type → carId 启发式
+    const nameForType = carInfo.Name || (clientInfo && clientInfo.loadName);
+    const resolvedType = DataManager.typeFromName(nameForType) || existing.type || this.getVehicleType(carId);
+    // camp 优先级：本次 Camp（支持 1/2/10/20）→ 已存的 camp → carId 启发式
+    const resolvedCamp = DataManager.mapCamp(carInfo.Camp) || existing.camp || this.getCamp(carId);
+
     const vehicle = {
       ...existing,
       carId: carId,
-      type: this.getVehicleType(carId),
-      camp: carInfo.Camp ? (carInfo.Camp === 1 ? 'blue' : carInfo.Camp === 2 ? 'red' : this.getCamp(carId)) : this.getCamp(carId),
+      type: resolvedType,
+      camp: resolvedCamp,
+      name: nameForType || existing.name || '',
       number: carInfo.Number || this.getNumber(carId),
       position: (!syncOwned && carInfo.Coordinate) ? {
         x: (carInfo.Coordinate.x || 0) / 100,
@@ -254,19 +282,19 @@ class DataManager {
     return vehicle;
   }
 
-  getVehicleType(carId) {
-    const num = this.getNumber(carId);
-    if (num === 5) return '99A';
-    if (carId >= 50 && carId <= 53) return 'UAV';
+  // Name 已知时优先用名字判类型，否则按 carId 启发式
+  getVehicleType(carId, name) {
+    const byName = DataManager.typeFromName(name);
+    if (byName) return byName;
+    if (carId < 100 && (carId % 10) === 5) return '99A';      // 单数字编码下 5 号是 99A
+    if (carId >= 50 && carId <= 53) return 'UAV';             // 旧的 UAV carId 区间
     return 'F1';
   }
 
   getCamp(carId) {
-    // 业务编码：Number<10 时 CarID = Camp*10+Number；Number>=10 时 CarID = Camp*100+Number
+    // 业务编码：Camp<10 且 Number<10 时 CarID=Camp*10+Number；其它情况 CarID=Camp*100+Number
     const campDigit = carId >= 100 ? Math.floor(carId / 100) : Math.floor(carId / 10);
-    if (campDigit === 1) return 'blue';
-    if (campDigit === 2) return 'red';
-    return 'unknown';
+    return DataManager.mapCamp(campDigit) || 'unknown';
   }
 
   getNumber(carId) {
