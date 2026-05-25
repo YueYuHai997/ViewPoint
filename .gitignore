@@ -8,10 +8,14 @@ out/
 build/
 release/
 
+# Electron runtime user data（main.js 里 app.setPath('userData', ...) 指向的本地 Chromium 配置）
+.userdata/
+
 # Logs
 *.log
 logs/
 npm-debug.log*
+test-log.md
 
 # OS generated files
 .DS_Store
@@ -22,9 +26,14 @@ ehthumbs.db
 # IDE / Editor
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 *~
+
+# Claude Code / Superpowers 本地缓存（plan/spec 仍提交，缓存与会话状态不提交）
+.claude/
+.superpowers-state/
 
 # Environment
 .env
@@ -42,3 +51,5 @@ ehthumbs.db
 *.tmp
 *.bak
 *.cache
+*.orig
+*.rej
