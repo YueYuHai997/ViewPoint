@@ -121,7 +121,11 @@ class App {
 
     this.sceneManager.addAnimationCallback((delta) => this.update(delta));
 
-    ipcRenderer.on('vehicle-update', (_, { carId, data }) => this.onVehicleUpdate(carId, data));
+    ipcRenderer.on('vehicle-update-batch', (_, batch) => {
+      for (const item of batch) {
+        this.onVehicleUpdate(item.carId, item.data);
+      }
+    });
     ipcRenderer.on('connection-status', (_, { connected }) => {
       this.toolbar.setConnectionStatus(connected);
       log.info(connected ? '服务器已连接' : '服务器连接断开');

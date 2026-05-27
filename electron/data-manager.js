@@ -8,6 +8,10 @@ class DataManager {
     // 服务端 raw object_id（EchoCreate.ID / NetMessage.object_id）→ 业务 CarID（Camp*10+Number 或 Camp*100+Number）
     this.rawIdToCarId = new Map();
     this.listeners = [];
+    // 批量推送：carId → 最新 data（null 表示删除）。20ms 一次 flush。
+    this._dirty = new Map();
+    this._flushIntervalMs = 20;
+    this._flushTimer = setInterval(() => this._flushDirty(), this._flushIntervalMs);
   }
 
   // 由 Camp + Number 计算业务 CarID：
@@ -80,8 +84,26 @@ class DataManager {
   }
 
   notify(carId, data) {
+    // 写入 dirty 表；同一 carId 多次更新会被合并为最新值
+    this._dirty.set(carId, data);
+  }
+
+  _flushDirty() {
+    if (this._dirty.size === 0) return;
+    const batch = [];
+    for (const [carId, data] of this._dirty) {
+      batch.push({ carId, data });
+    }
+    this._dirty.clear();
     for (const cb of this.listeners) {
-      cb(carId, data);
+      cb(batch);
+    }
+  }
+
+  dispose() {
+    if (this._flushTimer) {
+      clearInterval(this._flushTimer);
+      this._flushTimer = null;
     }
   }
 

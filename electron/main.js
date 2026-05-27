@@ -72,10 +72,10 @@ async function initServices() {
   await protoParser.init();
 
   dataManager = new DataManager();
-  dataManager.onUpdate((carId, data) => {
+  dataManager.onUpdate((batch) => {
     try {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('vehicle-update', { carId, data });
+      if (mainWindow && !mainWindow.isDestroyed() && batch.length > 0) {
+        mainWindow.webContents.send('vehicle-update-batch', batch);
       }
     } catch {}
   });
@@ -366,5 +366,6 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   log.info('应用退出');
   if (udpClient) udpClient.stop();
+  if (dataManager) dataManager.dispose();
   app.quit();
 });
