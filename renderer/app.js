@@ -7,10 +7,11 @@ const AxisHelper = require('./scene/AxisHelper');
 const VehicleManager = require('./entities/VehicleManager');
 const RangeVisualizer = require('./visualization/RangeVisualizer');
 const TrajectoryRenderer = require('./visualization/TrajectoryRenderer');
-const LeftPanel = require('./ui/LeftPanel');
-const RightPanel = require('./ui/RightPanel');
+const PanelManager = require('./hud/PanelManager');
+const LeftPanel = require('./hud/panels/LeftPanel');
+const RightPanel = require('./hud/panels/RightPanel');
+const LogPanel = require('./hud/panels/LogPanel');
 const Toolbar = require('./ui/Toolbar');
-const LogPanel = require('./ui/LogPanel');
 const Compass = require('./ui/Compass');
 const HeatmapVisualizer = require('./visualization/HeatmapVisualizer');
 
@@ -46,8 +47,10 @@ class App {
     Logger.setGlobalLevel(logLevel);
     log.info('日志等级:', logLevel);
 
-    // 初始化日志面板
-    this.logPanel = new LogPanel(document.getElementById('log-panel'));
+    // 初始化 HUD 面板系统
+    this.panelManager = new PanelManager(document.getElementById('hud-root'));
+    this.logPanel = new LogPanel();
+    this.panelManager.register(this.logPanel);
 
     // 初始化场景
     log.info('初始化三维场景...');
@@ -71,25 +74,25 @@ class App {
     this.compass = new Compass(sceneContainer);
     this.heatmapTickCounter = 0;
 
-    this.leftPanel = new LeftPanel(
-      document.getElementById('left-panel'),
-      (carId) => this.onVehicleSelect(carId)
-    );
+    this.leftPanel = new LeftPanel({
+      onVehicleSelect: (carId) => this.onVehicleSelect(carId)
+    });
+    this.panelManager.register(this.leftPanel);
 
-    this.rightPanel = new RightPanel(document.getElementById('right-panel'));
-    this.rightPanel.onRangeChange = (carId, config) => {
-      if (this.rangeMode === 'none') return;
-      if (this.rangeMode === 'all') {
-        // 滑块变化时所有车辆同步刷新
-        for (const v of this.vehicleManager.getAllVehicles()) {
-          this.rangeVisualizer.updateRanges(v, config);
+    this.rightPanel = new RightPanel({
+      onRangeChange: (carId, config) => {
+        if (this.rangeMode === 'none') return;
+        if (this.rangeMode === 'all') {
+          for (const v of this.vehicleManager.getAllVehicles()) {
+            this.rangeVisualizer.updateRanges(v, config);
+          }
+          return;
         }
-        return;
+        const vehicle = this.vehicleManager.getVehicle(carId);
+        if (vehicle) this.rangeVisualizer.updateRanges(vehicle, config);
       }
-      // 'selected' 模式：只更新当前选中
-      const vehicle = this.vehicleManager.getVehicle(carId);
-      if (vehicle) this.rangeVisualizer.updateRanges(vehicle, config);
-    };
+    });
+    this.panelManager.register(this.rightPanel);
 
     this.toolbar = new Toolbar(document.getElementById('toolbar'), {
       onResetView: () => {
@@ -295,7 +298,10 @@ class App {
     this.vehicles.clear();
     if (this.heatmap) this.heatmap.update([]);
     this.leftPanel.updateList([]);
-    this.rightPanel.render();
+    this.rightPanel.selectedVehicle = null;
+    if (this.rightPanel.bodyEl) {
+      this.rightPanel.bodyEl.innerHTML = `<div class="panel-content vehicle-info"><div class="empty-hint">选择一辆车辆查看详情</div></div>`;
+    }
     this.cameraController.reset();
     log.info('场景已重置');
   }
