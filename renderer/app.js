@@ -27,6 +27,14 @@ class App {
     // 范围显示模式：'all' 所有车辆 / 'selected' 仅选中 / 'none' 全部关闭
     this.rangeMode = 'selected';
     this.rangeModeCycle = ['selected', 'all', 'none'];
+    // 表格节流：脏标志 + 上次刷新时间
+    this._listDirty = false;
+    this._detailDirty = false;
+    this._lastTableFlushTime = 0;
+    this._tableFlushIntervalMs = 100;  // 10Hz 表格刷新
+    // 缓存常用 DOM
+    this._elTotalVehicles = null;
+    this._elUpdateRate = null;
   }
 
   async init() {
@@ -119,6 +127,9 @@ class App {
       log.info(connected ? '服务器已连接' : '服务器连接断开');
     });
 
+    this._elTotalVehicles = document.getElementById('total-vehicles');
+    this._elUpdateRate = document.getElementById('update-rate');
+
     log.info('应用初始化完成');
     ipcRenderer.send('renderer-ready');
   }
@@ -130,10 +141,9 @@ class App {
       this.vehicleManager.removeVehicle(carId);
       this.trajectoryRenderer.remove(carId);
       if (this.rangeVisualizer && this.rangeVisualizer.removeRanges) this.rangeVisualizer.removeRanges(carId);
-      this.leftPanel.updateList(Array.from(this.vehicles.values()));
-      this.toolbar.setVehicleCount(this.vehicles.size);
-      const totalEl = document.getElementById('total-vehicles');
-      if (totalEl) totalEl.textContent = `车辆总数: ${this.vehicles.size}`;
+      this._listDirty = true;
+      // 移除事件视为"重要变化"，立即刷一次
+      this._flushTablesIfDirty(true);
       log.info('清除车辆:', carId);
       return;
     }
@@ -144,7 +154,6 @@ class App {
 
     const vehicle = this.vehicleManager.updateVehicle(data);
     this.trajectoryRenderer.update(vehicle);
-    this.leftPanel.updateList(Array.from(this.vehicles.values()));
 
     // 首次收到车辆时自动聚焦
     if (!this.hasFocused && data.position) {
@@ -156,12 +165,33 @@ class App {
     // 新车辆按当前范围模式决定要不要立即显示范围
     if (isNew) this._applyRangeForVehicle(carId, vehicle);
 
-    if (this.leftPanel.selectedCarId === carId) {
-      this.rightPanel.showVehicle(data);
-    }
+    // 标脏，等 rAF 循环节流刷新
+    this._listDirty = true;
+    if (this.leftPanel.selectedCarId === carId) this._detailDirty = true;
+    // 新车要立刻在列表里显示，避免视觉延迟
+    if (isNew) this._flushTablesIfDirty(true);
+  }
 
-    this.toolbar.setVehicleCount(this.vehicles.size);
-    document.getElementById('total-vehicles').textContent = `车辆总数: ${this.vehicles.size}`;
+  _flushTablesIfDirty(force = false) {
+    const now = Date.now();
+    if (!force && now - this._lastTableFlushTime < this._tableFlushIntervalMs) return;
+    if (!this._listDirty && !this._detailDirty) return;
+
+    if (this._listDirty) {
+      this.leftPanel.updateList(Array.from(this.vehicles.values()));
+      this.toolbar.setVehicleCount(this.vehicles.size);
+      if (this._elTotalVehicles) {
+        this._elTotalVehicles.textContent = `车辆总数: ${this.vehicles.size}`;
+      }
+      this._listDirty = false;
+    }
+    if (this._detailDirty) {
+      const sel = this.leftPanel.selectedCarId;
+      const data = sel != null ? this.vehicles.get(sel) : null;
+      if (data) this.rightPanel.showVehicle(data);
+      this._detailDirty = false;
+    }
+    this._lastTableFlushTime = now;
   }
 
   onVehicleSelect(carId) {
@@ -175,6 +205,7 @@ class App {
         const v = this.vehicleManager.getVehicle(carId);
         if (v) this.rangeVisualizer.updateRanges(v, this.rightPanel.rangeConfig);
       }
+      this._detailDirty = false;  // 即将立刻刷新，先清脏标志
       this.rightPanel.showVehicle(data);
       if (data.position) {
         this.cameraController.focusOn(data.position);
@@ -221,6 +252,8 @@ class App {
 
   update(delta) {
     this.cameraController.update(delta);
+    // 节流刷新两个表格
+    this._flushTablesIfDirty(false);
     this.rangeVisualizer.update();
 
     // 罗盘跟随相机方位角
@@ -243,7 +276,9 @@ class App {
     }
 
     if (now - this.lastUpdateRateTime >= 1000) {
-      document.getElementById('update-rate').textContent = `更新频率: ${this.updateCount}/s`;
+      if (this._elUpdateRate) {
+        this._elUpdateRate.textContent = `更新频率: ${this.updateCount}/s`;
+      }
       this.updateCount = 0;
       this.lastUpdateRateTime = now;
     }
