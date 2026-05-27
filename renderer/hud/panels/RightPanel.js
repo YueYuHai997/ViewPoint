@@ -1,26 +1,23 @@
+const Panel = require('../Panel');
+
 const CLIENT_STATE_TEXT = {
   0: '未知', 1: '等待中', 2: '加载中', 3: '加载完毕', 4: '游戏中'
 };
-
 const CONTROL_MODE_TEXT = {
   0: '未知', 1: '键鼠', 2: '实装', 3: '智能体', 4: 'AI'
 };
-
 const BULLET_TYPE_TEXT = {
   0: '无', 1: '高炮', 2: '破甲弹', 3: '穿甲弹', 4: '导弹',
   5: '机枪', 6: '雷', 7: '左火箭', 8: '右火箭', 9: '上导弹', 10: '下导弹'
 };
-
 const GEAR_TEXT = {
   0: '无', 1: 'D', 2: 'H', 3: 'N', 4: 'R1', 5: 'R2', 6: 'PT',
   7: '遥控', 8: '自动', 9: '跟随', 10: '空挡', 11: '前进', 12: '后退', 13: '中心转向'
 };
-
 const WEATHER_TEXT = {
   0: '无', 1: '晴天', 2: '多云', 3: '阴雨', 4: '雪天', 5: '大雾',
   6: '雷阵雨', 7: '暴风雪', 8: '沙尘暴', 9: '雨夹雪'
 };
-
 const TERRAIN_TEXT = {
   0: '未知', 1: '道路', 2: '草地', 3: '土路', 4: '雪地', 5: '石路'
 };
@@ -29,24 +26,27 @@ function fmtNum(v, digits = 1) {
   if (v === undefined || v === null || isNaN(v)) return '-';
   return Number(v).toFixed(digits);
 }
-
 function fmtPct(v) {
   if (v === undefined || v === null || isNaN(v)) return '-';
   return Number(v).toFixed(1) + '%';
 }
-
 function fmtDeg(rad) {
   if (rad === undefined || rad === null || isNaN(rad)) return '-';
   return (rad * 180 / Math.PI).toFixed(1) + '°';
 }
-
 function row(label, value) {
   return `<div class="info-row"><label>${label}:</label><span>${value}</span></div>`;
 }
 
-class RightPanel {
-  constructor(container) {
-    this.container = container;
+class RightPanel extends Panel {
+  constructor(opts = {}) {
+    super('right', '车辆信息', {
+      defaultRect: { x: window.innerWidth - 308, y: 60, w: 300, h: 600 },
+      minSize: { w: 260, h: 240 },
+      closable: true,
+      minimizable: true,
+      resizable: true
+    });
     this.selectedVehicle = null;
     this.rangeConfig = {
       scoutRange: 1500,
@@ -54,25 +54,19 @@ class RightPanel {
       radarRange: 100,
       cameraRange: 1500
     };
-    this.onRangeChange = null;
-    this.render();
+    this.onRangeChange = opts.onRangeChange || null;
   }
 
-  render() {
-    this.container.innerHTML = `
-      <div class="panel-header">
-        <h3>车辆信息</h3>
-      </div>
-      <div class="panel-content" id="vehicle-info">
-        <div class="empty-hint">选择一辆车辆查看详情</div>
-      </div>
-    `;
+  renderBody() {
+    this.bodyEl.innerHTML = `<div class="panel-content vehicle-info">
+      <div class="empty-hint">选择一辆车辆查看详情</div>
+    </div>`;
   }
 
   showVehicle(vehicle) {
     const isNewSelection = !this.selectedVehicle || this.selectedVehicle.carId !== vehicle.carId;
     this.selectedVehicle = vehicle;
-    const infoEl = this.container.querySelector('#vehicle-info');
+    const infoEl = this.bodyEl && this.bodyEl.querySelector('.vehicle-info');
     if (!infoEl || !vehicle) return;
 
     const pos = vehicle.position || { x: 0, y: 0, z: 0 };
@@ -176,31 +170,31 @@ class RightPanel {
         <h4>态势范围</h4>
         <div class="range-control">
           <label>侦察范围 (m):</label>
-          <input type="range" id="range-scout" min="0" max="2000" value="${this.rangeConfig.scoutRange}" />
-          <span id="range-scout-val">${this.rangeConfig.scoutRange}</span>
+          <input type="range" class="range-scout" min="0" max="2000" value="${this.rangeConfig.scoutRange}" />
+          <span class="range-scout-val">${this.rangeConfig.scoutRange}</span>
         </div>
         <div class="range-control">
           <label>攻击范围 (m):</label>
-          <input type="range" id="range-attack" min="0" max="500" value="${this.rangeConfig.attackRange}" />
-          <span id="range-attack-val">${this.rangeConfig.attackRange}</span>
+          <input type="range" class="range-attack" min="0" max="500" value="${this.rangeConfig.attackRange}" />
+          <span class="range-attack-val">${this.rangeConfig.attackRange}</span>
         </div>
         <div class="range-control">
           <label>雷达范围 (m):</label>
-          <input type="range" id="range-radar" min="0" max="100" value="${this.rangeConfig.radarRange}" />
-          <span id="range-radar-val">${this.rangeConfig.radarRange}</span>
+          <input type="range" class="range-radar" min="0" max="100" value="${this.rangeConfig.radarRange}" />
+          <span class="range-radar-val">${this.rangeConfig.radarRange}</span>
         </div>
         <div class="range-control">
           <label>摄像头范围 (m):</label>
-          <input type="range" id="range-camera" min="0" max="1700" value="${this.rangeConfig.cameraRange}" />
-          <span id="range-camera-val">${this.rangeConfig.cameraRange}</span>
+          <input type="range" class="range-camera" min="0" max="1700" value="${this.rangeConfig.cameraRange}" />
+          <span class="range-camera-val">${this.rangeConfig.cameraRange}</span>
         </div>
       </div>
     `;
 
     const rangeTypes = ['scout', 'attack', 'radar', 'camera'];
     for (const type of rangeTypes) {
-      const slider = infoEl.querySelector(`#range-${type}`);
-      const valSpan = infoEl.querySelector(`#range-${type}-val`);
+      const slider = infoEl.querySelector(`.range-${type}`);
+      const valSpan = infoEl.querySelector(`.range-${type}-val`);
       if (slider) {
         slider.addEventListener('input', () => {
           const val = parseInt(slider.value);
@@ -211,7 +205,6 @@ class RightPanel {
       }
     }
 
-    // 切换到新车辆时，自动按当前（默认或上次调整后的）参数渲染一次范围
     if (isNewSelection && this.onRangeChange) {
       this.onRangeChange(vehicle.carId, this.rangeConfig);
     }
