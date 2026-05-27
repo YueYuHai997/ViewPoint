@@ -1,43 +1,49 @@
-class LeftPanel {
-  constructor(container, onVehicleSelect) {
-    this.container = container;
-    this.onVehicleSelect = onVehicleSelect;
+const Panel = require('../Panel');
+
+class LeftPanel extends Panel {
+  constructor(opts = {}) {
+    super('left', '车辆列表', {
+      defaultRect: { x: 8, y: 60, w: 240, h: 600 },
+      minSize: { w: 200, h: 200 },
+      closable: true,
+      minimizable: true,
+      resizable: true
+    });
+    this.onVehicleSelect = opts.onVehicleSelect || (() => {});
     this.selectedCarId = null;
     this.filterText = '';
     this.filterType = 'all';
-    this.render();
+    this._lastVehicles = [];
   }
 
-  render() {
-    this.container.innerHTML = `
-      <div class="panel-header">
-        <h3>车辆列表</h3>
-      </div>
+  renderBody() {
+    this.bodyEl.innerHTML = `
       <div class="panel-filter">
-        <input type="text" id="filter-id" placeholder="搜索 ID..." />
-        <select id="filter-type">
+        <input type="text" class="filter-id" placeholder="搜索 ID..." />
+        <select class="filter-type">
           <option value="all">全部类型</option>
           <option value="F1">F1</option>
           <option value="99A">99A</option>
           <option value="UAV">UAV</option>
         </select>
       </div>
-      <div class="panel-content" id="vehicle-list"></div>
+      <div class="panel-content vehicle-list"></div>
     `;
 
-    this.container.querySelector('#filter-id').addEventListener('input', (e) => {
+    this.bodyEl.querySelector('.filter-id').addEventListener('input', (e) => {
       this.filterText = e.target.value;
-      this.updateList();
+      this.updateList(this._lastVehicles);
     });
 
-    this.container.querySelector('#filter-type').addEventListener('change', (e) => {
+    this.bodyEl.querySelector('.filter-type').addEventListener('change', (e) => {
       this.filterType = e.target.value;
-      this.updateList();
+      this.updateList(this._lastVehicles);
     });
   }
 
   updateList(vehicles = []) {
-    const listEl = this.container.querySelector('#vehicle-list');
+    this._lastVehicles = vehicles;
+    const listEl = this.bodyEl && this.bodyEl.querySelector('.vehicle-list');
     if (!listEl) return;
 
     const filtered = vehicles.filter(v => {
@@ -47,7 +53,7 @@ class LeftPanel {
     });
 
     const blueVehicles = filtered.filter(v => v.camp === 'blue');
-    const redVehicles = filtered.filter(v => v.camp === 'red');
+    const redVehicles  = filtered.filter(v => v.camp === 'red');
 
     let html = '';
 
@@ -88,7 +94,7 @@ class LeftPanel {
         const carId = parseInt(el.dataset.carid);
         this.selectedCarId = carId;
         this.updateList(vehicles);
-        if (this.onVehicleSelect) this.onVehicleSelect(carId);
+        this.onVehicleSelect(carId);
       });
     });
   }
