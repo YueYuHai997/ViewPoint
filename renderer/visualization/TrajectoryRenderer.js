@@ -22,11 +22,12 @@ class TrajectoryRenderer {
       attr.setUsage(this.THREE.DynamicDrawUsage);
       geo.setAttribute('position', attr);
       geo.setDrawRange(0, 0);
-      // 轨迹线不参与严格的视锥剔除，跳过包围球重算
-      geo.computeBoundingSphere = noop;
       const color = vehicle.camp === 'blue' ? 0x2196f3 : 0xf44336;
       const mat = new this.THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6 });
       const line = new this.THREE.Line(geo, mat);
+      // 跳过 frustum culling：renderer 不再读 boundingSphere，避免 noop 后崩溃
+      // trajectory 线本身很轻，省掉的剔除收益微乎其微
+      line.frustumCulled = false;
       this.scene.add(line);
       entry = { line, positions, capacity };
       this.entries.set(carId, entry);
@@ -62,7 +63,5 @@ class TrajectoryRenderer {
     }
   }
 }
-
-function noop() {}
 
 module.exports = TrajectoryRenderer;
