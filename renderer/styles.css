@@ -18,59 +18,115 @@ body {
   height: 100vh;
 }
 
-/* 工具栏 */
+/* 工具栏 - 战术蓝调 */
 #toolbar {
-  height: 40px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #333;
+  height: 44px;
+  background: linear-gradient(180deg, #0d141a 0%, #0a0e12 100%);
+  border-bottom: 1px solid rgba(100, 200, 255, 0.18);
+  box-shadow: 0 1px 8px rgba(0, 150, 255, 0.06), inset 0 -1px 0 rgba(100, 200, 255, 0.05);
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 14px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .toolbar-left, .toolbar-center, .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .toolbar-left { flex: 1; }
 .toolbar-center { flex: 2; justify-content: center; }
-.toolbar-right { flex: 1; justify-content: flex-end; }
+.toolbar-right { flex: 1; justify-content: flex-end; gap: 10px; }
 
 .toolbar-title {
-  font-size: 14px;
-  color: #888;
+  font-size: 13px;
+  color: rgba(180, 220, 255, 0.85);
+  letter-spacing: 1.5px;
+  font-weight: 500;
+  text-shadow: 0 0 8px rgba(100, 200, 255, 0.35);
 }
 
 #toolbar button {
-  background: #2a2a2a;
-  color: #e0e0e0;
-  border: 1px solid #444;
-  padding: 4px 12px;
+  position: relative;
+  background: rgba(20, 30, 40, 0.7);
+  color: #c5d5e0;
+  border: 1px solid rgba(100, 180, 220, 0.25);
+  padding: 5px 12px;
   border-radius: 3px;
   cursor: pointer;
   font-size: 12px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0.5px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 
 #toolbar button:hover {
-  background: #3a3a3a;
+  background: rgba(30, 60, 90, 0.85);
+  border-color: rgba(100, 200, 255, 0.6);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(100, 200, 255, 0.25), inset 0 0 8px rgba(100, 200, 255, 0.1);
 }
 
+#toolbar button:active {
+  transform: translateY(1px);
+}
+
+#toolbar button.active {
+  background: linear-gradient(180deg, rgba(33, 150, 243, 0.55) 0%, rgba(21, 101, 192, 0.7) 100%);
+  border-color: rgba(100, 200, 255, 0.75);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(33, 150, 243, 0.4), inset 0 0 6px rgba(100, 200, 255, 0.2);
+}
+
+/* HUD 菜单按钮：用左侧细线把它和左边那一组按钮分开 */
+.hud-menu-wrap {
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(100, 180, 220, 0.18);
+}
+
+.hud-menu-btn {
+  /* 与其他按钮一致，靠 #toolbar button 已经命中 */
+}
+
+/* 状态徽章 - 连接/断开 */
 .status-dot {
-  font-size: 12px;
-  padding: 2px 8px;
+  font-size: 11px;
+  padding: 3px 10px;
   border-radius: 10px;
+  border: 1px solid transparent;
+  letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 .status-dot.connected {
-  background: #1b5e20;
-  color: #4caf50;
+  background: rgba(76, 175, 80, 0.15);
+  color: #66bb6a;
+  border-color: rgba(76, 175, 80, 0.4);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.18);
 }
 
 .status-dot.disconnected {
-  background: #4a1010;
-  color: #f44336;
+  background: rgba(244, 67, 54, 0.15);
+  color: #ef5350;
+  border-color: rgba(244, 67, 54, 0.4);
+}
+
+/* 数值标签：房间 / 车辆 / FPS */
+#room-info,
+#vehicle-count,
+#fps-display {
+  font-size: 11px;
+  color: rgba(180, 220, 255, 0.7);
+  font-family: 'Consolas', monospace;
+  letter-spacing: 0.4px;
+  padding: 3px 9px;
+  border-radius: 3px;
+  background: rgba(20, 30, 40, 0.45);
+  border: 1px solid rgba(100, 180, 220, 0.14);
 }
 
 /* 主内容区（全屏 3D） */
@@ -447,12 +503,6 @@ body {
   box-shadow: 0 0 6px rgba(255,235,59,0.9);
 }
 
-/* ===== Toolbar 顶视图按钮高亮 ===== */
-#toolbar button.active {
-  background: #1565c0;
-  color: #fff;
-  border-color: #64b5f6;
-}
 
 /* ===== HUD 浮窗系统 ===== */
 #hud-root {
