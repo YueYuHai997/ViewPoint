@@ -26,8 +26,18 @@ class UDPClient extends EventEmitter {
     log.info('创建 UDP Socket...');
     this.socket = dgram.createSocket('udp4');
 
+    this._rxCount = 0;
+    this._rxBytes = 0;
+    this._rxStatTimer = setInterval(() => {
+      if (this._rxCount > 0) {
+        log.debug('UDP rx:', this._rxCount, 'pkts', this._rxBytes, 'B/s');
+        this._rxCount = 0;
+        this._rxBytes = 0;
+      }
+    }, 1000);
     this.socket.on('message', (msg, rinfo) => {
-      log.debug('收到数据包, 来源:', rinfo.address + ':' + rinfo.port, '大小:', msg.length, 'bytes');
+      this._rxCount++;
+      this._rxBytes += msg.length;
       this.emit('data', msg, rinfo);
     });
 
@@ -123,6 +133,10 @@ class UDPClient extends EventEmitter {
   }
 
   stop() {
+    if (this._rxStatTimer) {
+      clearInterval(this._rxStatTimer);
+      this._rxStatTimer = null;
+    }
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;

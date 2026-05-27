@@ -124,7 +124,7 @@ function handleUDPData(buffer) {
       return;
     }
 
-    log.info('收到消息:', decoded.type);
+    log.debug('收到消息:', decoded.type);
 
     switch (decoded.type) {
       case 'NetMessage': {
@@ -140,7 +140,7 @@ function handleUDPData(buffer) {
       }
       case 'MsgCombineSend': {
         const msgs = decoded.data.msgs || [];
-        log.info('批量消息, 数量:', msgs.length);
+        log.debug('批量消息, 数量:', msgs.length);
         for (let i = 0; i < msgs.length; i++) {
           const anyMsg = msgs[i];
           const inner = protoParser.decodeAny(anyMsg.type_url, anyMsg.value);
@@ -149,13 +149,13 @@ function handleUDPData(buffer) {
             if (inner.type === 'NetMessage' && inner.data.msg) {
               const real = protoParser.decodeAny(inner.data.msg.type_url, inner.data.msg.value);
               if (real) {
-                log.info('  子消息[' + i + ']:', real.type);
+                log.debug('  子消息[' + i + ']:', real.type);
                 processMessage(real, inner.data.object_id);
               } else {
                 log.warn('  子消息[' + i + '] 内层解码失败:', inner.data.msg.type_url);
               }
             } else {
-              log.info('  子消息[' + i + ']:', inner.type);
+              log.debug('  子消息[' + i + ']:', inner.type);
               processMessage(inner);
             }
           } else {
