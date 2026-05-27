@@ -11,6 +11,7 @@ class Toolbar {
       <div class="toolbar-left">
         <button id="btn-reset-view" title="复位视角 (R)">视角复位</button>
         <button id="btn-top-view" title="切换到顶视图">顶视图</button>
+        <button id="btn-range-mode" title="切换范围显示模式">范围: 仅选中</button>
         <button id="btn-heatmap" title="切换战场热力图">热力图</button>
         <button id="btn-reset-scene" title="重置场景">场景重置</button>
       </div>
@@ -33,6 +34,13 @@ class Toolbar {
       if (this.callbacks.onTopView) this.callbacks.onTopView();
     });
 
+    this.container.querySelector('#btn-range-mode').addEventListener('click', () => {
+      if (this.callbacks.onCycleRangeMode) {
+        const mode = this.callbacks.onCycleRangeMode();
+        this.setRangeMode(mode);
+      }
+    });
+
     this.container.querySelector('#btn-heatmap').addEventListener('click', () => {
       if (this.callbacks.onToggleHeatmap) {
         const on = this.callbacks.onToggleHeatmap();
@@ -43,6 +51,16 @@ class Toolbar {
     this.container.querySelector('#btn-reset-scene').addEventListener('click', () => {
       if (this.callbacks.onResetScene) this.callbacks.onResetScene();
     });
+  }
+
+  setRangeMode(mode) {
+    const el = this.container.querySelector('#btn-range-mode');
+    if (!el) return;
+    const label = mode === 'all' ? '范围: 全部'
+                : mode === 'none' ? '范围: 关闭'
+                : '范围: 仅选中';
+    el.textContent = label;
+    el.classList.toggle('active', mode !== 'none');
   }
 
   setHeatmapActive(on) {

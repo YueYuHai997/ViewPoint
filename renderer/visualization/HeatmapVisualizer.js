@@ -92,9 +92,10 @@ class HeatmapVisualizer {
       const p = v && v.position;
       if (!p) continue;
       // 世界 (x, z) ∈ [-half, +half] → 像素 (0, s)
-      // 把世界 -z 作"北"放在 canvas 上方，所以 cy 用 (-z+half)/world
+      // 注意：Plane 被绕 X 轴 -π/2 旋转后，UV.y 与 world.z 反向；CanvasTexture 默认 flipY=true 再翻一次。
+      // 两次反向相互抵消 → 这里直接 (p.z + half) 即可，让 world.z=-half(北) 落在 canvas 顶部、world.z=+half(南) 落在底部
       const cx = ((p.x + half) / this.worldSize) * s;
-      const cy = ((-p.z + half) / this.worldSize) * s;
+      const cy = ((p.z + half) / this.worldSize) * s;
       if (cx < -r || cx > s + r) continue;
       if (cy < -r || cy > s + r) continue;
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);

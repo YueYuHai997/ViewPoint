@@ -24,6 +24,9 @@ class App {
     this.updateCount = 0;
     this.lastUpdateRateTime = Date.now();
     this.hasFocused = false;
+    // 范围显示模式：'all' 所有车辆 / 'selected' 仅选中 / 'none' 全部关闭
+    this.rangeMode = 'selected';
+    this.rangeModeCycle = ['selected', 'all', 'none'];
   }
 
   async init() {
@@ -67,10 +70,17 @@ class App {
 
     this.rightPanel = new RightPanel(document.getElementById('right-panel'));
     this.rightPanel.onRangeChange = (carId, config) => {
-      const vehicle = this.vehicleManager.getVehicle(carId);
-      if (vehicle) {
-        this.rangeVisualizer.updateRanges(vehicle, config);
+      if (this.rangeMode === 'none') return;
+      if (this.rangeMode === 'all') {
+        // 滑块变化时所有车辆同步刷新
+        for (const v of this.vehicleManager.getAllVehicles()) {
+          this.rangeVisualizer.updateRanges(v, config);
+        }
+        return;
       }
+      // 'selected' 模式：只更新当前选中
+      const vehicle = this.vehicleManager.getVehicle(carId);
+      if (vehicle) this.rangeVisualizer.updateRanges(vehicle, config);
     };
 
     this.toolbar = new Toolbar(document.getElementById('toolbar'), {
@@ -83,6 +93,12 @@ class App {
         this.cameraController.topDownView(list);
         log.info('切换到顶视图，覆盖车辆数:', list.length);
       },
+      onCycleRangeMode: () => {
+        const idx = this.rangeModeCycle.indexOf(this.rangeMode);
+        const next = this.rangeModeCycle[(idx + 1) % this.rangeModeCycle.length];
+        this.setRangeMode(next);
+        return this.rangeMode;
+      },
       onToggleHeatmap: () => {
         const on = this.heatmap.toggle();
         if (on) this.heatmap.update(Array.from(this.vehicles.values()));
@@ -91,6 +107,7 @@ class App {
       },
       onResetScene: () => this.resetScene()
     });
+    this.toolbar.setRangeMode(this.rangeMode);
 
     this.toolbar.setRoomId(config.room.id);
 
@@ -121,6 +138,7 @@ class App {
       return;
     }
 
+    const isNew = !this.vehicles.has(carId);
     this.vehicles.set(carId, data);
     this.updateCount++;
 
@@ -135,6 +153,9 @@ class App {
       log.info('自动聚焦到车辆:', carId);
     }
 
+    // 新车辆按当前范围模式决定要不要立即显示范围
+    if (isNew) this._applyRangeForVehicle(carId, vehicle);
+
     if (this.leftPanel.selectedCarId === carId) {
       this.rightPanel.showVehicle(data);
     }
@@ -146,11 +167,55 @@ class App {
   onVehicleSelect(carId) {
     const data = this.vehicles.get(carId);
     if (data) {
+      // 'selected' 模式下切换车辆时，先清掉之前那辆的范围
+      if (this.rangeMode === 'selected') {
+        for (const otherId of Array.from(this.rangeVisualizer.rangeObjects.keys())) {
+          if (otherId !== carId) this.rangeVisualizer.removeRanges(otherId);
+        }
+        const v = this.vehicleManager.getVehicle(carId);
+        if (v) this.rangeVisualizer.updateRanges(v, this.rightPanel.rangeConfig);
+      }
       this.rightPanel.showVehicle(data);
       if (data.position) {
         this.cameraController.focusOn(data.position);
         log.info('聚焦车辆:', carId);
       }
+    }
+  }
+
+  // 按当前 rangeMode 给单辆车决定是否显示范围
+  _applyRangeForVehicle(carId, vehicleEntity) {
+    if (this.rangeMode === 'none') return;
+    if (this.rangeMode === 'selected' && this.leftPanel.selectedCarId !== carId) return;
+    this.rangeVisualizer.updateRanges(vehicleEntity, this.rightPanel.rangeConfig);
+  }
+
+  setRangeMode(mode) {
+    if (!['all', 'selected', 'none'].includes(mode)) return;
+    this.rangeMode = mode;
+    log.info('范围显示模式:', mode);
+    this.toolbar.setRangeMode(mode);
+
+    if (mode === 'none') {
+      this.rangeVisualizer.clear();
+      return;
+    }
+
+    if (mode === 'all') {
+      for (const v of this.vehicleManager.getAllVehicles()) {
+        this.rangeVisualizer.updateRanges(v, this.rightPanel.rangeConfig);
+      }
+      return;
+    }
+
+    // 'selected'：清掉非选中的，给当前选中刷一次
+    const sel = this.leftPanel.selectedCarId;
+    for (const otherId of Array.from(this.rangeVisualizer.rangeObjects.keys())) {
+      if (otherId !== sel) this.rangeVisualizer.removeRanges(otherId);
+    }
+    if (sel != null) {
+      const v = this.vehicleManager.getVehicle(sel);
+      if (v) this.rangeVisualizer.updateRanges(v, this.rightPanel.rangeConfig);
     }
   }
 
