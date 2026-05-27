@@ -116,7 +116,8 @@ class App {
         log.info('热力图:', on ? '开启' : '关闭');
         return on;
       },
-      onResetScene: () => this.resetScene()
+      onResetScene: () => this.resetScene(),
+      panelManager: this.panelManager
     });
     this.toolbar.setRangeMode(this.rangeMode);
 

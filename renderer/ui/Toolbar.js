@@ -1,9 +1,18 @@
 class Toolbar {
   constructor(container, callbacks) {
     this.container = container;
-    this.callbacks = callbacks;
+    this.callbacks = callbacks || {};
+    this.panelManager = (callbacks && callbacks.panelManager) || null;
     this.connected = false;
     this.render();
+    // 点其它地方关闭 HUD 菜单
+    this._docClickHandler = (e) => {
+      if (!this.container.contains(e.target)) {
+        const m = this.container.querySelector('.hud-menu');
+        if (m) m.style.display = 'none';
+      }
+    };
+    document.addEventListener('click', this._docClickHandler);
   }
 
   render() {
@@ -14,6 +23,10 @@ class Toolbar {
         <button id="btn-range-mode" title="切换范围显示模式">范围: 仅选中</button>
         <button id="btn-heatmap" title="切换战场热力图">热力图</button>
         <button id="btn-reset-scene" title="重置场景">场景重置</button>
+        <div class="hud-menu-wrap" style="position:relative; display:inline-block">
+          <button class="hud-menu-btn" id="btn-hud-menu" title="HUD 面板控制">HUD ▾</button>
+          <div class="hud-menu" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; background:#1a1a1a; border:1px solid #333; padding:6px 0; min-width:180px; z-index:200; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.6)"></div>
+        </div>
       </div>
       <div class="toolbar-center">
         <span class="toolbar-title">ViewPoint - 三维战场态势</span>
@@ -50,6 +63,11 @@ class Toolbar {
 
     this.container.querySelector('#btn-reset-scene').addEventListener('click', () => {
       if (this.callbacks.onResetScene) this.callbacks.onResetScene();
+    });
+
+    this.container.querySelector('#btn-hud-menu').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleHudMenu();
     });
   }
 
@@ -90,6 +108,46 @@ class Toolbar {
   setFPS(fps) {
     const el = this.container.querySelector('#fps-display');
     if (el) el.textContent = `FPS: ${fps}`;
+  }
+
+  _toggleHudMenu() {
+    const menuEl = this.container.querySelector('.hud-menu');
+    if (!menuEl) return;
+    if (!this.panelManager) {
+      menuEl.style.display = 'none';
+      return;
+    }
+    if (menuEl.style.display === 'block') {
+      menuEl.style.display = 'none';
+      return;
+    }
+    let html = '';
+    for (const p of this.panelManager.listPanels()) {
+      const checked = p.visible ? 'checked' : '';
+      html += `<label style="display:block; padding:4px 12px; font-size:12px; color:#ccc; cursor:pointer">
+        <input type="checkbox" data-panel-id="${p.id}" ${checked} style="margin-right:6px"/>${this._escape(p.title)}
+      </label>`;
+    }
+    html += '<hr style="border:none; border-top:1px solid #333; margin:6px 0"/>';
+    html += '<button class="reset-layout-btn" style="display:block; width:100%; text-align:left; padding:4px 12px; font-size:12px; color:#f44; background:transparent; border:none; cursor:pointer">重置布局</button>';
+    menuEl.innerHTML = html;
+    menuEl.style.display = 'block';
+
+    menuEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        this.panelManager.setVisible(cb.dataset.panelId, cb.checked);
+      });
+    });
+    menuEl.querySelector('.reset-layout-btn').addEventListener('click', () => {
+      if (confirm('确定重置 HUD 布局到默认？')) {
+        this.panelManager.resetLayout();
+        menuEl.style.display = 'none';
+      }
+    });
+  }
+
+  _escape(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 }
 
