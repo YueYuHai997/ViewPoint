@@ -59,7 +59,19 @@
       "Bash(node --check renderer/ui/Toolbar.js)",
       "Bash(git -C /d/GoGameServer-1.0/Other add renderer/ui/Toolbar.js renderer/app.js)",
       "Bash(git -C /d/GoGameServer-1.0/Other commit -m \"feat\\(hud\\): add HUD menu with panel visibility toggles and reset layout button\")",
-      "Bash(git -C /d/GoGameServer-1.0/Other log --oneline -10)"
+      "Bash(git -C /d/GoGameServer-1.0/Other log --oneline -10)",
+      "Bash(git -C /d/GoGameServer-1.0/Other add renderer/styles.css)",
+      "Bash(git -C /d/GoGameServer-1.0/Other commit -m \"fix\\(hud\\): make scene-container fill main-content after flex layout removal\")",
+      "Bash(git -C /d/GoGameServer-1.0/Other add renderer/visualization/TrajectoryRenderer.js)",
+      "Bash(git -C /d/GoGameServer-1.0/Other commit -m \"fix\\(traj\\): disable frustumCulled on trajectory lines to avoid null boundingSphere crash\")",
+      "Bash(git -C /d/GoGameServer-1.0/Other commit -m \"style\\(toolbar\\): tactical cyan theme matching compass, refined button/badge states\")",
+      "Bash(gh api *)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh repo *)",
+      "PowerShell($sshDir = \"$env:USERPROFILE\\\\.ssh\"; if \\(-not \\(Test-Path $sshDir\\)\\) { New-Item -ItemType Directory -Path $sshDir | Out-Null }; Test-Path \"$sshDir\\\\known_hosts\"; Get-Command ssh-keyscan -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)",
+      "PowerShell(ssh-keyscan -t rsa,ecdsa,ed25519 github.com 2>$null | Out-File -FilePath \"$env:USERPROFILE\\\\.ssh\\\\known_hosts\" -Encoding ascii -Append; Get-Content \"$env:USERPROFILE\\\\.ssh\\\\known_hosts\" | Measure-Object -Line)",
+      "PowerShell(ssh-keyscan -t rsa,ecdsa,ed25519 github.com)",
+      "PowerShell($meta = Invoke-RestMethod -Uri 'https://api.github.com/meta'; $lines = $meta.ssh_keys | ForEach-Object { \"github.com $_\" }; $lines | Out-File -FilePath \"$env:USERPROFILE\\\\.ssh\\\\known_hosts\" -Encoding ascii -Append; $lines)"
     ]
   }
 }
