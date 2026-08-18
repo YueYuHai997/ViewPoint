@@ -1,8 +1,10 @@
 class CameraController {
-  constructor(THREE, camera, domElement) {
+  constructor(THREE, camera, domElement, opts = {}) {
     this.THREE = THREE;
     this.camera = camera;
     this.domElement = domElement;
+    this.onReset = opts.onReset || null;
+    this.onManualPan = opts.onManualPan || null;
 
     this.target = new THREE.Vector3(0, 0, 0);
     this.rotateSpeed = 0.0018;   // 旋转灵敏度（越小越慢）
@@ -38,7 +40,8 @@ class CameraController {
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'r' || e.key === 'R') {
-        this.reset();
+        if (this.onReset) this.onReset();
+        else this.reset();
       }
     });
   }
@@ -48,6 +51,7 @@ class CameraController {
       this.isRotating = true;
     } else if (e.button === 2) {
       this.isPanning = true;
+      if (this.onManualPan) this.onManualPan();
     }
     // 用户拖拽 / 缩放时打断进行中的视角过渡
     if (this.tween) this.cancelTween();
@@ -98,12 +102,46 @@ class CameraController {
     this.spherical.radius = Math.max(1, Math.min(50000, this.spherical.radius));
   }
 
-  focusOn(position) {
+  focusOn(position, opts = {}) {
     this.target.set(position.x, position.y, position.z);
-    this.spherical.radius = 500;
-    this.spherical.phi = Math.PI / 4;
-    this.spherical.theta = 0;
+    this.spherical.radius = opts.radius || 500;
+    this.spherical.phi = opts.phi == null ? Math.PI / 4 : opts.phi;
+    this.spherical.theta = opts.theta == null ? 0 : opts.theta;
     this.applyUpdate();
+  }
+
+  setTarget(position) {
+    if (!position) return;
+    this.target.set(position.x, position.y || 0, position.z);
+  }
+
+  focusOnVehicles(vehicles, opts = {}) {
+    const bounds = this._getVehicleBounds(vehicles);
+    if (!bounds) return false;
+
+    const padding = opts.padding == null ? 1.35 : opts.padding;
+    const minRadius = opts.minRadius == null ? 260 : opts.minRadius;
+    const maxRadius = opts.maxRadius == null ? 50000 : opts.maxRadius;
+    const phi = opts.phi == null ? Math.PI / 4 : opts.phi;
+    const theta = opts.theta == null ? this.spherical.theta : opts.theta;
+    const radius = Math.max(minRadius, Math.min(maxRadius, bounds.span * padding));
+
+    if (opts.animate) {
+      this.sphericalDelta.theta = 0;
+      this.sphericalDelta.phi = 0;
+      this._startTween({
+        target: { x: bounds.centerX, y: bounds.centerY, z: bounds.centerZ },
+        spherical: { radius, phi, theta }
+      }, opts.duration || 0.45);
+    } else {
+      this.target.set(bounds.centerX, bounds.centerY, bounds.centerZ);
+      this.spherical.radius = radius;
+      this.spherical.phi = phi;
+      this.spherical.theta = theta;
+      this.applyUpdate();
+    }
+
+    return true;
   }
 
   reset() {
@@ -116,6 +154,18 @@ class CameraController {
 
   // 顶视图：相机平滑过渡到目标正上方（默认 0.5s）
   topDownView(targetVehicles, duration = 0.5) {
+    this.clearMotion();
+    const focused = this.focusOnVehicles(targetVehicles, {
+      animate: true,
+      duration,
+      phi: 0.01,
+      theta: 0,
+      padding: 1.25,
+      minRadius: 220,
+      maxRadius: 90000
+    });
+    if (focused) return;
+
     // 计算目标 target 和 radius
     let endTargetX = 0, endTargetZ = 0, endRadius = Math.max(this.spherical.radius, 2000);
     if (Array.isArray(targetVehicles) && targetVehicles.length > 0) {
@@ -144,6 +194,44 @@ class CameraController {
   }
 
   // 启动一个相机 tween；持续 duration 秒
+  _getVehicleBounds(vehicles) {
+    if (!Array.isArray(vehicles) || vehicles.length === 0) return null;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    let count = 0;
+
+    for (const vehicle of vehicles) {
+      const p = vehicle && vehicle.position;
+      if (!p) continue;
+      const x = Number(p.x);
+      const y = Number(p.y || 0);
+      const z = Number(p.z);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+      count++;
+    }
+
+    if (count === 0) return null;
+    const spanX = maxX - minX;
+    const spanY = maxY - minY;
+    const spanZ = maxZ - minZ;
+    return {
+      centerX: (minX + maxX) / 2,
+      centerY: (minY + maxY) / 2,
+      centerZ: (minZ + maxZ) / 2,
+      span: Math.max(spanX, spanZ, spanY * 2, 160),
+      count
+    };
+  }
+
   _startTween(end, duration) {
     this.tween = {
       startTarget: this.target.clone(),
@@ -161,6 +249,14 @@ class CameraController {
 
   cancelTween() {
     this.tween = null;
+  }
+
+  clearMotion() {
+    this.cancelTween();
+    this.sphericalDelta.theta = 0;
+    this.sphericalDelta.phi = 0;
+    this.isRotating = false;
+    this.isPanning = false;
   }
 
   // 获取当前相机水平朝向角（用于指南针）：theta=0 时相机在 +z 方向看向原点

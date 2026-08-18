@@ -19,14 +19,16 @@ class PanelManager {
     panel.mount(this.rootEl);
 
     // 如有持久化布局，覆盖 default
-    if (this._loaded && this._loaded.panels && this._loaded.panels[panel.id]) {
+    if (!panel.fixed && this._loaded && this._loaded.panels && this._loaded.panels[panel.id]) {
       panel.deserialize(this._loaded.panels[panel.id]);
     }
 
-    panel.headerEl.addEventListener('pointerdown', (e) => this._startDrag(panel, e));
+    if (panel.draggable) {
+      panel.headerEl.addEventListener('pointerdown', (e) => this._startDrag(panel, e));
+    }
     panel.el.addEventListener('pointerdown', () => this.bringToFront(panel.id));
     const grip = panel.el.querySelector('.hud-panel-resize-grip');
-    if (grip) grip.addEventListener('pointerdown', (e) => this._startResize(panel, e));
+    if (grip && panel.resizable) grip.addEventListener('pointerdown', (e) => this._startResize(panel, e));
 
     this.panels.set(panel.id, panel);
     return panel;
@@ -35,7 +37,7 @@ class PanelManager {
   unregister(id) {
     const p = this.panels.get(id);
     if (!p) return;
-    p.unmount();
+      p.unmount();
     this.panels.delete(id);
   }
 
@@ -59,7 +61,7 @@ class PanelManager {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
     this._loaded = null;
     for (const p of this.panels.values()) {
-      p.setRect({ ...p.defaultRect });
+      p.resetToDefault();
       p.minimized = false;
       p.setVisible(true);
       if (p.bodyEl) p.bodyEl.style.display = '';
@@ -121,6 +123,11 @@ class PanelManager {
         this._persistSoon();
       }
     });
+    window.addEventListener('resize', () => {
+      for (const p of this.panels.values()) {
+        if (p.fixed) p.resetToDefault();
+      }
+    });
   }
 
   _persistSoon() {
@@ -130,7 +137,9 @@ class PanelManager {
 
   _persistNow() {
     const data = { version: STORAGE_VERSION, panels: {} };
-    for (const [id, p] of this.panels) data.panels[id] = p.serialize();
+    for (const [id, p] of this.panels) {
+      if (!p.fixed) data.panels[id] = p.serialize();
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {

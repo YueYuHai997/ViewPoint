@@ -27,7 +27,7 @@ class ProtoParser {
       'UploadCarInfo', 'UploadRadar', 'UploadUAVInfo',
       'EchoCreate', 'EchoDestroy', 'SyncBase', 'Base',
       'Echo99ADriver', 'Echo99AGunner', 'EchoF1Driver', 'EchoF1Gunner',
-      'EchoF1AI', 'EchoFire', 'EchoHit', 'UpHit',
+      'EchoF1AI', 'EchoUAV', 'EchoFire', 'EchoHit', 'UpHit',
       'Client_Info', 'Client_Entity', 'Login_Info', 'Init_Info', 'EntityInfo', 'Room_Control'
     ];
 

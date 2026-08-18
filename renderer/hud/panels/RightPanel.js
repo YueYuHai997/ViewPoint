@@ -41,11 +41,12 @@ function row(label, value) {
 class RightPanel extends Panel {
   constructor(opts = {}) {
     super('right', '车辆信息', {
-      defaultRect: { x: window.innerWidth - 308, y: 60, w: 300, h: 600 },
-      minSize: { w: 260, h: 240 },
-      closable: true,
-      minimizable: true,
-      resizable: true
+      defaultRect: () => ({ x: Math.max(12, window.innerWidth - 312), y: 52, w: 300, h: Math.max(280, window.innerHeight - 92) }),
+      minSize: { w: 260, h: 280 },
+      fixed: true,
+      closable: false,
+      minimizable: false,
+      resizable: false
     });
     this.selectedVehicle = null;
     this.rangeConfig = {
@@ -61,6 +62,11 @@ class RightPanel extends Panel {
     this.bodyEl.innerHTML = `<div class="panel-content vehicle-info">
       <div class="empty-hint">选择一辆车辆查看详情</div>
     </div>`;
+  }
+
+  clearVehicle() {
+    this.selectedVehicle = null;
+    if (this.bodyEl) this.renderBody();
   }
 
   showVehicle(vehicle) {

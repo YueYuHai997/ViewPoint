@@ -17,9 +17,18 @@ class Toolbar {
 
   render() {
     this.container.innerHTML = `
-      <div class="toolbar-left">
+      <div class="toolbar-brand">
+        <span class="toolbar-brand-main">ViewPoint</span>
+        <span class="toolbar-brand-sub">三维战场态势</span>
+      </div>
+      <div class="toolbar-controls">
         <button id="btn-reset-view" title="复位视角 (R)">视角复位</button>
         <button id="btn-top-view" title="切换到顶视图">顶视图</button>
+        <select id="camp-display-filter" class="toolbar-select" title="显示指定阵营车辆">
+          <option value="all">显示: 全部</option>
+          <option value="blue">显示: 蓝方</option>
+          <option value="red">显示: 红方</option>
+        </select>
         <button id="btn-range-mode" title="切换范围显示模式">范围: 仅选中</button>
         <button id="btn-heatmap" title="切换战场热力图">热力图</button>
         <button id="btn-reset-scene" title="重置场景">场景重置</button>
@@ -28,14 +37,15 @@ class Toolbar {
           <div class="hud-menu" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; background:#1a1a1a; border:1px solid #333; padding:6px 0; min-width:180px; z-index:200; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.6)"></div>
         </div>
       </div>
-      <div class="toolbar-center">
-        <span class="toolbar-title">ViewPoint - 三维战场态势</span>
-      </div>
-      <div class="toolbar-right">
+      <div class="toolbar-status">
         <span id="connection-status" class="status-dot disconnected">未连接</span>
         <span id="room-info">房间: --</span>
         <span id="vehicle-count">车辆: 0</span>
         <span id="fps-display">FPS: --</span>
+        <div class="tb-clock-wrap">
+          <span id="sys-clock">--:--:--</span>
+          <span id="mission-timer">任务 T+00:00:00</span>
+        </div>
       </div>
     `;
 
@@ -45,6 +55,12 @@ class Toolbar {
 
     this.container.querySelector('#btn-top-view').addEventListener('click', () => {
       if (this.callbacks.onTopView) this.callbacks.onTopView();
+    });
+
+    this.container.querySelector('#camp-display-filter').addEventListener('change', (e) => {
+      if (this.callbacks.onCampDisplayFilterChange) {
+        this.callbacks.onCampDisplayFilterChange(e.target.value);
+      }
     });
 
     this.container.querySelector('#btn-range-mode').addEventListener('click', () => {
@@ -69,6 +85,9 @@ class Toolbar {
       e.stopPropagation();
       this._toggleHudMenu();
     });
+
+    this._missionStart = Date.now();
+    this._startClock();
   }
 
   setRangeMode(mode) {
@@ -84,6 +103,11 @@ class Toolbar {
   setHeatmapActive(on) {
     const el = this.container.querySelector('#btn-heatmap');
     if (el) el.classList.toggle('active', on);
+  }
+
+  setCampDisplayFilter(camp) {
+    const el = this.container.querySelector('#camp-display-filter');
+    if (el) el.value = camp;
   }
 
   setConnectionStatus(connected) {
@@ -108,6 +132,30 @@ class Toolbar {
   setFPS(fps) {
     const el = this.container.querySelector('#fps-display');
     if (el) el.textContent = `FPS: ${fps}`;
+  }
+
+  _startClock() {
+    if (this._clockTimer) clearInterval(this._clockTimer);
+    const pad = (n) => String(n).padStart(2, '0');
+    const tick = () => {
+      const now = new Date();
+      const clockEl = this.container.querySelector('#sys-clock');
+      const missionEl = this.container.querySelector('#mission-timer');
+      if (clockEl) {
+        clockEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      }
+      if (missionEl) {
+        const seconds = Math.floor((Date.now() - this._missionStart) / 1000);
+        missionEl.textContent = `任务 T+${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
+      }
+    };
+    tick();
+    this._clockTimer = setInterval(tick, 1000);
+  }
+
+  _stopClock() {
+    if (this._clockTimer) clearInterval(this._clockTimer);
+    this._clockTimer = null;
   }
 
   _toggleHudMenu() {

@@ -3,11 +3,12 @@ const Panel = require('../Panel');
 class LeftPanel extends Panel {
   constructor(opts = {}) {
     super('left', '车辆列表', {
-      defaultRect: { x: 8, y: 60, w: 240, h: 600 },
-      minSize: { w: 200, h: 200 },
-      closable: true,
-      minimizable: true,
-      resizable: true
+      defaultRect: () => ({ x: 12, y: 52, w: 264, h: Math.max(240, window.innerHeight - 92) }),
+      minSize: { w: 220, h: 240 },
+      fixed: true,
+      closable: false,
+      minimizable: false,
+      resizable: false
     });
     this.onVehicleSelect = opts.onVehicleSelect || (() => {});
     this.selectedCarId = null;

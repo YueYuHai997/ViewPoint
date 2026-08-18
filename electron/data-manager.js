@@ -7,6 +7,7 @@ class DataManager {
     this.vehicles = new Map();
     // 服务端 raw object_id（EchoCreate.ID / NetMessage.object_id）→ 业务 CarID（Camp*10+Number 或 Camp*100+Number）
     this.rawIdToCarId = new Map();
+    this.clientIdToCarIds = new Map();
     this.listeners = [];
     // 批量推送：carId → 最新 data（null 表示删除）。20ms 一次 flush。
     this._dirty = new Map();
@@ -42,6 +43,26 @@ class DataManager {
   }
 
   // 登记 raw_id → 业务 CarID 映射（EchoCreate 时调用）
+  static coordinateToPosition(coor) {
+    if (!coor) return null;
+
+    const scale = 11131955.0;
+    const offset = 512000.0;
+    const lon = Number(coor.x) || 0;
+    const lat = Number(coor.y) || 0;
+    const height = Number(coor.z) || 0;
+
+    const xCm = lon * scale + offset;
+    const yCm = offset - lat * scale;
+    const zCm = height * 100.0;
+
+    return {
+      x: xCm / 100,
+      y: zCm / 100,
+      z: yCm / 100
+    };
+  }
+
   registerRawId(rawId, carId) {
     if (rawId === undefined || rawId === null || !carId) return;
     if (rawId === carId) return;  // 本就一致就不需要映射
@@ -58,7 +79,6 @@ class DataManager {
         if (stale.position) target.position = stale.position;
         if (stale.rotation) target.rotation = stale.rotation;
         if (stale.speed != null) target.speed = stale.speed;
-        target._syncOwned = stale._syncOwned || target._syncOwned;
       } else {
         // 还没有正主 → 直接把 stale 改名挂到 c
         stale.carId = c;
@@ -77,6 +97,36 @@ class DataManager {
     if (this.vehicles.has(n)) return n;            // 已经是业务 CarID
     if (this.rawIdToCarId.has(n)) return this.rawIdToCarId.get(n);
     return n;                                       // 兜底：原样返回
+  }
+
+  registerClientEntity(clientId, carId) {
+    if (!clientId || !carId) return;
+    const key = String(clientId);
+    const id = Number(carId);
+    const ids = this.clientIdToCarIds.get(key) || new Set();
+    ids.add(id);
+    this.clientIdToCarIds.set(key, ids);
+  }
+
+  resolveSyncCarId(objectId, clientId, expectedType) {
+    const raw = objectId !== undefined && objectId !== null ? Number(objectId) : null;
+    if (raw && this.rawIdToCarId.has(raw)) return this.rawIdToCarId.get(raw);
+    if (raw && this.vehicles.has(raw)) return raw;
+
+    if (clientId) {
+      const ids = Array.from(this.clientIdToCarIds.get(String(clientId)) || []);
+      if (ids.length === 1) return ids[0];
+      if (expectedType && ids.length > 1) {
+        const matched = ids.find(id => {
+          const vehicle = this.vehicles.get(id);
+          const type = (vehicle && vehicle.type) || this.getVehicleType(id);
+          return type === expectedType;
+        });
+        if (matched) return matched;
+      }
+    }
+
+    return raw || null;
   }
 
   onUpdate(callback) {
@@ -107,43 +157,15 @@ class DataManager {
     }
   }
 
-  // 高频同步数据通道：Echo99ADriver / EchoF1Driver / EchoF1AI 直接走这里
-  // 仅更新位置 / 旋转 / 速度，并打上 _syncOwned 标记；之后 UploadCarInfo / EchoCreate 不会再覆写这三项
+  // 高频同步数据通道：现在只保留速度等附加信息，位置以 Upload*Info.Coordinate 为准
   processSyncTransform(carId, pos, rot, speed) {
     if (!carId) return;
-    let existing = this.vehicles.get(carId);
-    const isNew = !existing;
-    if (isNew) {
-      // 同步消息先到达 → 用最小信息建一个占位车辆，等 EchoCreate / UploadCarInfo 把元信息补齐
-      existing = {
-        carId,
-        type: this.getVehicleType(carId),
-        camp: this.getCamp(carId),
-        number: this.getNumber(carId),
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: 0, z: 0 },
-        speed: 0,
-        damage: {},
-        lastUpdate: Date.now()
-      };
-      this.vehicles.set(carId, existing);
-      log.info('新车辆(sync):', existing.type + '-' + existing.number, '(' + existing.camp + ')', 'ID:', carId);
-    }
+    const existing = this.vehicles.get(carId);
+    if (!existing) return;
 
-    if (pos) {
-      existing.position = {
-        x: (pos.x || 0) / 100,
-        y: (pos.z || 0) / 100,
-        z: (pos.y || 0) / 100
-      };
-    }
-    if (rot) {
-      existing.rotation = { x: 0, y: rot.y || 0, z: 0 };
-    }
     if (speed !== undefined && speed !== null) {
       existing.speed = speed;
     }
-    existing._syncOwned = true;
     existing.lastUpdate = Date.now();
     this.notify(carId, existing);
   }
@@ -154,14 +176,12 @@ class DataManager {
 
     const existing = this.vehicles.get(carId) || {};
     const isNew = !this.vehicles.has(carId);
-    // 一旦收到过 Echo*Driver 的同步数据，位置/旋转/速度归同步通道独占，不被这里覆盖
-    const syncOwned = existing._syncOwned === true;
-
     // type 优先级：本次 Name → 已存的 type → carId 启发式
     const nameForType = carInfo.Name || (clientInfo && clientInfo.loadName);
     const resolvedType = DataManager.typeFromName(nameForType) || existing.type || this.getVehicleType(carId);
     // camp 优先级：本次 Camp（支持 1/2/10/20）→ 已存的 camp → carId 启发式
     const resolvedCamp = DataManager.mapCamp(carInfo.Camp) || existing.camp || this.getCamp(carId);
+    const uploadPosition = DataManager.coordinateToPosition(carInfo.Coordinate);
 
     const vehicle = {
       ...existing,
@@ -170,17 +190,13 @@ class DataManager {
       camp: resolvedCamp,
       name: nameForType || existing.name || '',
       number: carInfo.Number || this.getNumber(carId),
-      position: (!syncOwned && carInfo.Coordinate) ? {
-        x: (carInfo.Coordinate.x || 0) / 100,
-        y: (carInfo.Coordinate.z || 0) / 100,
-        z: (carInfo.Coordinate.y || 0) / 100
-      } : existing.position || { x: 0, y: 0, z: 0 },
-      rotation: (!syncOwned && carInfo.MoveDirection) ? {
+      position: uploadPosition || existing.position || { x: 0, y: 0, z: 0 },
+      rotation: carInfo.MoveDirection ? {
         x: 0,
         y: carInfo.MoveDirection.y || 0,
         z: 0
       } : existing.rotation || { x: 0, y: 0, z: 0 },
-      speed: syncOwned ? (existing.speed || 0) : (carInfo.MoveSpeed || 0),
+      speed: carInfo.MoveSpeed || existing.speed || 0,
       rotateSpeed: carInfo.RototeSpeed || 0,
       wheelSpeed: carInfo.WheelSpeed || 0,
       acceleration: carInfo.Acceleration || 0,
@@ -267,6 +283,7 @@ class DataManager {
 
     const existing = this.vehicles.get(carId) || {};
     const isNew = !this.vehicles.has(carId);
+    const uploadPosition = DataManager.coordinateToPosition(uavInfo.Coordinate);
 
     const vehicle = {
       ...existing,
@@ -274,11 +291,7 @@ class DataManager {
       type: 'UAV',
       camp: this.getCamp(carId),
       number: this.getNumber(carId),
-      position: uavInfo.Coordinate ? {
-        x: (uavInfo.Coordinate.x || 0) / 100,
-        y: (uavInfo.Coordinate.z || 0) / 100,
-        z: (uavInfo.Coordinate.y || 0) / 100
-      } : existing.position || { x: 0, y: 0, z: 0 },
+      position: uploadPosition || existing.position || { x: 0, y: 0, z: 0 },
       attitude: uavInfo.Attitude || { x: 0, y: 0, z: 0 },
       speed: uavInfo.Vector ? Math.sqrt(
         (uavInfo.Vector.x || 0) ** 2 + (uavInfo.Vector.y || 0) ** 2 + (uavInfo.Vector.z || 0) ** 2
@@ -339,6 +352,10 @@ class DataManager {
     for (const [rawId, synthetic] of this.rawIdToCarId) {
       if (synthetic === carId) this.rawIdToCarId.delete(rawId);
     }
+    for (const [clientId, ids] of this.clientIdToCarIds) {
+      ids.delete(carId);
+      if (ids.size === 0) this.clientIdToCarIds.delete(clientId);
+    }
     // 通知渲染端清掉 3D 对象 / 轨迹 / 范围
     this.notify(carId, null);
   }
@@ -347,6 +364,7 @@ class DataManager {
     log.info('清空所有车辆数据');
     this.vehicles.clear();
     this.rawIdToCarId.clear();
+    this.clientIdToCarIds.clear();
   }
 }
 

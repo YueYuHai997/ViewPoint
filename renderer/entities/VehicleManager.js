@@ -9,6 +9,8 @@ class VehicleManager {
   constructor(THREE, sceneManager) {
     this.THREE = THREE;
     this.scene = sceneManager.scene;
+    this.camera = sceneManager.camera;
+    this.renderer = sceneManager.renderer;
     this.CSS2DObject = sceneManager.CSS2DObject;
     this.vehicles = new Map();
   }
@@ -60,6 +62,18 @@ class VehicleManager {
 
   getAllVehicles() {
     return Array.from(this.vehicles.values());
+  }
+
+  getPickableObjects() {
+    return Array.from(this.vehicles.values())
+      .filter(vehicle => vehicle.group.visible)
+      .map(vehicle => vehicle.group);
+  }
+
+  updateScreenSpaceLabels() {
+    for (const vehicle of this.vehicles.values()) {
+      vehicle.updateScreenSpaceLabel(this.camera, this.renderer);
+    }
   }
 
   clear() {

@@ -5,11 +5,13 @@ class Panel {
     this.defaultRect = opts.defaultRect || { x: 100, y: 100, w: 280, h: 360 };
     this.minSize = opts.minSize || { w: 160, h: 80 };
     this.resizable = opts.resizable !== false;
+    this.fixed = opts.fixed === true;
+    this.draggable = opts.draggable !== false && !this.fixed;
     this.closable = opts.closable !== false;
     this.minimizable = opts.minimizable !== false;
     this.visible = true;
     this.minimized = false;
-    this.rect = { ...this.defaultRect };
+    this.rect = this._resolveDefaultRect();
     this.zIndex = 1;
     this.el = null;
     this.bodyEl = null;
@@ -19,7 +21,7 @@ class Panel {
 
   mount(rootEl) {
     this.el = document.createElement('div');
-    this.el.className = 'hud-panel';
+    this.el.className = `hud-panel${this.fixed ? ' fixed' : ''}`;
     this.el.dataset.panelId = this.id;
     this.el.innerHTML = `
       <div class="hud-panel-header">
@@ -84,6 +86,16 @@ class Panel {
   setRect(rect) {
     Object.assign(this.rect, rect);
     if (this.el) this._applyRect();
+  }
+
+  resetToDefault() {
+    this.setRect(this._resolveDefaultRect());
+  }
+
+  _resolveDefaultRect() {
+    return typeof this.defaultRect === 'function'
+      ? { ...this.defaultRect() }
+      : { ...this.defaultRect };
   }
 
   _applyRect() {

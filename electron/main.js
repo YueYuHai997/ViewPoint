@@ -133,7 +133,10 @@ function handleUDPData(buffer) {
           const real = protoParser.decodeAny(decoded.data.msg.type_url, decoded.data.msg.value);
           if (real) {
             log.info('实际消息:', real.type);
-            processMessage(real, decoded.data.object_id);
+            processMessage(real, {
+              objectId: decoded.data.object_id,
+              clientId: decoded.data.client_id
+            });
           }
         }
         break;
@@ -150,7 +153,10 @@ function handleUDPData(buffer) {
               const real = protoParser.decodeAny(inner.data.msg.type_url, inner.data.msg.value);
               if (real) {
                 log.debug('  子消息[' + i + ']:', real.type);
-                processMessage(real, inner.data.object_id);
+                processMessage(real, {
+                  objectId: inner.data.object_id,
+                  clientId: inner.data.client_id
+                });
               } else {
                 log.warn('  子消息[' + i + '] 内层解码失败:', inner.data.msg.type_url);
               }
@@ -172,7 +178,10 @@ function handleUDPData(buffer) {
   }
 }
 
-function processMessage(decoded, objectId) {
+function processMessage(decoded, meta = {}) {
+  const objectId = meta && meta.objectId;
+  const clientId = meta && meta.clientId;
+
   switch (decoded.type) {
     case 'req_Login': {
       const status = decoded.data.account || '';
@@ -197,7 +206,8 @@ function processMessage(decoded, objectId) {
     case 'EchoF1AI': {
       if (!objectId) break;
       // NetMessage.object_id 是服务端 raw 句柄，需要映射成业务 CarID（EchoCreate 时登记）
-      const carId = dataManager.resolveCarId(objectId);
+      const expectedType = decoded.type === 'Echo99ADriver' ? '99A' : 'F1';
+      const carId = dataManager.resolveSyncCarId(objectId, clientId, expectedType);
       const trans = decoded.data.translate;
       const pos = trans && trans.Pos;
       const rot = trans && trans.Rot;
@@ -207,10 +217,20 @@ function processMessage(decoded, objectId) {
       dataManager.processSyncTransform(carId, pos, rot, speed);
       break;
     }
+    case 'EchoUAV': {
+      if (!objectId) break;
+      const carId = dataManager.resolveSyncCarId(objectId, clientId, 'UAV');
+      const trans = decoded.data.translate;
+      const pos = trans && trans.Pos;
+      const rot = trans && trans.Rot;
+      dataManager.processSyncTransform(carId, pos, rot);
+      break;
+    }
     case 'Echo99AGunner':
     case 'EchoF1Gunner': {
       if (!objectId) break;
-      const carId = dataManager.resolveCarId(objectId);
+      const expectedType = decoded.type === 'Echo99AGunner' ? '99A' : 'F1';
+      const carId = dataManager.resolveSyncCarId(objectId, clientId, expectedType);
       const existing = dataManager.getVehicle(carId);
       if (existing) {
         existing.turretH = decoded.data.TurretRot || 0;
@@ -284,6 +304,7 @@ function processMessage(decoded, objectId) {
       for (const ent of entities) {
         const carId = ent.CarID;
         if (!carId) continue;
+        dataManager.registerClientEntity(clientId, carId);
 
         const clientPayload = {
           ip: clientInfo.ip || '',

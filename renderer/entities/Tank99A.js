@@ -5,7 +5,7 @@ class Tank99A extends Vehicle {
     super(THREE, scene, data, opts);
     this.type = '99A';
     this.build();
-    this.createLabel('99A-' + data.number);
+    this.createLabel(data);
   }
 
   build() {

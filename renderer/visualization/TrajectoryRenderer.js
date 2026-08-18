@@ -57,6 +57,11 @@ class TrajectoryRenderer {
     }
   }
 
+  setVisible(carId, visible) {
+    const entry = this.entries.get(carId);
+    if (entry && entry.line) entry.line.visible = visible;
+  }
+
   clear() {
     for (const carId of Array.from(this.entries.keys())) {
       this.remove(carId);

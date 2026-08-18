@@ -5,7 +5,7 @@ class F1Vehicle extends Vehicle {
     super(THREE, scene, data, opts);
     this.type = 'F1';
     this.build();
-    this.createLabel('F1-' + data.number);
+    this.createLabel(data);
   }
 
   build() {
